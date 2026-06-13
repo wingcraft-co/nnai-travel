@@ -95,3 +95,34 @@ def derive_accessibility(country_id: str) -> int:
     if country_id in _MID_COUNTRIES:
         return 6
     return 4
+
+
+REQUIRED_FIELDS = {
+    "id", "city", "city_kr", "country", "country_id", "monthly_cost_usd",
+    "internet_mbps", "english_score", "climate", "safety_score", "best_months",
+    "peak_season", "avg_flight_hours_from_icn", "budget_tier", "activities",
+    "vibe", "safety", "kid_friendly", "romantic", "accessibility_score",
+    "nightlife", "must_see", "curated",
+}
+SCORE_FIELDS = ("safety", "kid_friendly", "romantic", "accessibility_score", "nightlife")
+
+
+def validate_destination(d: dict) -> list[str]:
+    """destination dict의 유효성 검사. 오류 메시지 리스트 반환 (빈 리스트=정상)."""
+    errors: list[str] = []
+    missing = REQUIRED_FIELDS - set(d.keys())
+    if missing:
+        errors.append(f"누락 필드: {sorted(missing)}")
+        return errors
+    if d["budget_tier"] not in BUDGET_TIERS:
+        errors.append(f"budget_tier 잘못됨: {d['budget_tier']}")
+    if not d["best_months"] or any(m < 1 or m > 12 for m in d["best_months"]):
+        errors.append(f"best_months 범위 오류: {d['best_months']}")
+    if d["avg_flight_hours_from_icn"] <= 0:
+        errors.append("avg_flight_hours_from_icn 양수여야 함")
+    for field in SCORE_FIELDS:
+        if not (1 <= d[field] <= 10):
+            errors.append(f"{field} 1~10 범위 벗어남: {d[field]}")
+    if not isinstance(d["activities"], list) or not d["activities"]:
+        errors.append("activities 비어있음")
+    return errors

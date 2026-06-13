@@ -50,3 +50,51 @@ def test_accessibility_tiers():
     assert D.derive_accessibility("JP") == 8
     assert D.derive_accessibility("TH") == 6
     assert D.derive_accessibility("XX") == 4
+
+
+# ---------- validate_destination 단위 테스트 ----------
+
+def _minimal_dest() -> dict:
+    return {
+        "id": "XX", "city": "Test", "city_kr": "테스트", "country": "Testland",
+        "country_id": "XX", "monthly_cost_usd": 1500, "internet_mbps": 100,
+        "english_score": 7, "climate": "tropical", "safety_score": 7,
+        "best_months": [11, 12, 1], "peak_season": "건기",
+        "avg_flight_hours_from_icn": 6.0, "budget_tier": "mid",
+        "activities": ["해변"], "vibe": "휴양", "safety": 7,
+        "kid_friendly": 7, "romantic": 8, "accessibility_score": 6,
+        "nightlife": 6, "must_see": [], "curated": False,
+    }
+
+def test_validate_passes_good():
+    assert D.validate_destination(_minimal_dest()) == []
+
+def test_validate_catches_missing_field():
+    bad = _minimal_dest()
+    del bad["vibe"]
+    errs = D.validate_destination(bad)
+    assert any("누락" in e for e in errs)
+
+def test_validate_catches_bad_budget_tier():
+    bad = _minimal_dest()
+    bad["budget_tier"] = "cheap"
+    errs = D.validate_destination(bad)
+    assert any("budget_tier" in e for e in errs)
+
+def test_validate_catches_bad_month():
+    bad = _minimal_dest()
+    bad["best_months"] = [13]
+    errs = D.validate_destination(bad)
+    assert any("best_months" in e for e in errs)
+
+def test_validate_catches_out_of_range_score():
+    bad = _minimal_dest()
+    bad["nightlife"] = 11
+    errs = D.validate_destination(bad)
+    assert any("nightlife" in e for e in errs)
+
+def test_validate_catches_empty_activities():
+    bad = _minimal_dest()
+    bad["activities"] = []
+    errs = D.validate_destination(bad)
+    assert any("activities" in e for e in errs)
