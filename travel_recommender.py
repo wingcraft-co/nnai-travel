@@ -115,6 +115,10 @@ def quality_score(dest: dict) -> float:
 
 _CHILD_AGES = {"유아", "초등", "청소년"}
 
+_KID_MAX_FLIGHT_HOURS = 8
+_SENIOR_MAX_FLIGHT_HOURS = 10
+_LONG_FLIGHT_PENALTY = 1.5
+
 
 def companion_score(dest: dict, companions: dict | None) -> float:
     """동행 구성별 적합도(0~10). 유형에 맞는 목적지 신호를 선택해 평가."""
@@ -122,7 +126,7 @@ def companion_score(dest: dict, companions: dict | None) -> float:
         return 6.0
     ctype = companions.get("type") or ""
     ages = companions.get("ages") or []
-    flight = dest.get("avg_flight_hours_from_icn", 8)
+    flight = dest.get("avg_flight_hours_from_icn", 0)
     kid = dest.get("kid_friendly", 5)
     romantic = dest.get("romantic", 5)
     access = dest.get("accessibility_score", 5)
@@ -136,16 +140,19 @@ def companion_score(dest: dict, companions: dict | None) -> float:
         score = romantic
     elif "가족" in ctype and has_kid:
         score = (kid + safety) / 2
-        if flight > 8:
-            score -= 1.5
+        if flight > _KID_MAX_FLIGHT_HOURS:
+            score -= _LONG_FLIGHT_PENALTY
     elif "효도" in ctype or has_senior:
         score = (access + safety) / 2
-        if flight > 10:
-            score -= 1.5
+        if flight > _SENIOR_MAX_FLIGHT_HOURS:
+            score -= _LONG_FLIGHT_PENALTY
     elif "친구" in ctype:
         score = nightlife
     elif "회사" in ctype or "단체" in ctype:
         score = (access + nightlife) / 2
+    elif "가족" in ctype:
+        # 성인 가족(아이·고령자 없음): 안전+편의 중심
+        score = (safety + access) / 2
     else:  # 혼자 등
         score = 6.0
     return round(max(0.0, min(10.0, score)), 3)
@@ -158,7 +165,7 @@ def passes_accessibility(dest: dict, companions: dict | None) -> bool:
     if not companions:
         return True
     needs = companions.get("accessibility") or []
-    if "휠체어" in needs and dest.get("accessibility_score", 5) < 5:
+    if "휠체어" in needs and dest.get("accessibility_score", 0) < 5:
         return False
     return True
 

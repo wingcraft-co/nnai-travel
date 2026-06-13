@@ -127,3 +127,21 @@ def test_region_match():
 
 def test_region_unknown_country_excluded_when_filtered():
     assert R.passes_region(_dest(country_id="ZZ"), ["동남아"]) is False
+
+
+def test_companion_family_adults_only_uses_safety_access():
+    # 아이·고령자 없는 성인 가족 → (safety+access)/2, 혼자 fallback 아님
+    s = R.companion_score(_dest(safety=8, accessibility_score=6),
+                          {"type": "가족", "ages": ["성인"]})
+    assert s == 7.0
+
+def test_companion_group_uses_access_and_nightlife():
+    s = R.companion_score(_dest(accessibility_score=6, nightlife=8),
+                          {"type": "회사/단체"})
+    assert s == 7.0
+
+def test_companion_kid_penalty_boundary_no_penalty_at_threshold():
+    # flight == 8 은 임계값(>8)에 걸리지 않아 감점 없음
+    s = R.companion_score(_dest(kid_friendly=8, safety=8, avg_flight_hours_from_icn=8.0),
+                          {"type": "가족", "ages": ["유아"]})
+    assert s == 8.0
