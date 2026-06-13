@@ -126,3 +126,23 @@ def validate_destination(d: dict) -> list[str]:
     if not isinstance(d["activities"], list) or not d["activities"]:
         errors.append("activities 비어있음")
     return errors
+
+
+# ---------- 로더 ----------
+
+_DEST_CACHE: list[dict] | None = None
+
+
+def load_destinations() -> list[dict]:
+    """destinations.json 로드 (모듈 캐시)."""
+    global _DEST_CACHE
+    if _DEST_CACHE is None:
+        path = resolve_data_path("destinations.json")
+        with open(path, encoding="utf-8") as f:
+            _DEST_CACHE = json.load(f)["destinations"]
+    return _DEST_CACHE
+
+
+def get_destination(dest_id: str) -> dict | None:
+    """id로 단일 destination 조회. 없으면 None."""
+    return next((d for d in load_destinations() if d["id"] == dest_id), None)

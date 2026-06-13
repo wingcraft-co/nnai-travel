@@ -98,3 +98,42 @@ def test_validate_catches_empty_activities():
     bad["activities"] = []
     errs = D.validate_destination(bad)
     assert any("activities" in e for e in errs)
+
+
+# ---------- destinations.json 통합 테스트 ----------
+
+@pytest.fixture
+def dests():
+    return D.load_destinations()
+
+def test_count_matches_city_scores(dests):
+    cities = json.loads(resolve_data_path("city_scores.json").read_text(encoding="utf-8"))["cities"]
+    assert len(dests) == len(cities)
+
+def test_all_destinations_pass_validation(dests):
+    for d in dests:
+        errs = D.validate_destination(d)
+        assert errs == [], f"{d['id']}: {errs}"
+
+def test_ids_match_city_scores(dests):
+    cities = json.loads(resolve_data_path("city_scores.json").read_text(encoding="utf-8"))["cities"]
+    assert {d["id"] for d in dests} == {c["id"] for c in cities}
+
+def test_curated_cities_flagged(dests):
+    by_id = {d["id"]: d for d in dests}
+    for cid in ("DPS", "LIS", "BKK", "TYO"):
+        assert by_id[cid]["curated"] is True
+        assert by_id[cid]["must_see"], f"{cid} must_see 비어있음"
+
+def test_get_destination_found():
+    d = D.get_destination("BKK")
+    assert d is not None
+    assert d["city"] == "Bangkok"
+
+def test_get_destination_missing():
+    assert D.get_destination("ZZZ") is None
+
+def test_frontend_copy_in_sync():
+    backend = resolve_data_path("destinations.json").read_text(encoding="utf-8")
+    frontend = (Path(__file__).parent.parent / "frontend" / "src" / "data" / "destinations.json").read_text(encoding="utf-8")
+    assert backend == frontend
