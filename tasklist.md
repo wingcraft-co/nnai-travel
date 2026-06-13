@@ -54,3 +54,5 @@
 - 여행 추천엔진 테스트 43개(경비 8 + 엔진 35) 통과 + CI 등록. destinations.json 기반 결정론적 랭킹, 국가 중복 제거 없음.
 - Phase 3 완료: 여행 일정(N박M일) LLM 플래너 신설 — `prompts/itinerary.py`(프로필→프롬프트 헬퍼+빌더), `prompts/itinerary_system.py`(ko/en 스키마), `api/itinerary_parser.py`(robust 파싱 + Day별 마크다운 렌더). 기존 이민용 builder.py·parser.py 미변경.
 - 일정 플래너 테스트 30개(프롬프트 19 + 파서/렌더 11) 통과 + CI 등록. LLM 호출/엔드포인트 배선은 Phase 4 범위.
+- Phase 4(백엔드 배선) 완료: `api/travel_service.py`(순수 도메인 로직, LLM 주입 가능) + `api/travel.py`(FastAPI 라우터) 신설, `server.py`에 `/api/travel/recommend`·`/api/travel/itinerary` 연결. 기존 이민 엔드포인트 미변경. `cowork/backend/api-reference.md` 동기화.
+- 서비스 테스트 7개(로컬, 결정론적) + 라우터 테스트 4개(CI 전용, fastapi importorskip) + CI 등록. 인증/결제/rate-limit은 추후 별도 협의.

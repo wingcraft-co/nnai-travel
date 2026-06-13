@@ -17,8 +17,9 @@
 
 1. [인증 (Auth)](#인증)
 2. [추천 API](#추천-api)
-3. [핀 API](#핀-api)
-4. [결제 API](#결제-api)
+3. [여행 추천·일정 API (Travel pivot)](#여행-추천일정-api-travel-pivot-신규)
+4. [핀 API](#핀-api)
+5. [결제 API](#결제-api)
 5. [Onboarding Draft API](#onboarding-draft-api)
 6. [Pro 도시 대시보드 API](#pro-도시-대시보드-api)
 7. [Nomad Journey API](#nomad-journey-api)
@@ -488,6 +489,68 @@ Content-Type: application/json
   "detail": "Login required."
 }
 ```
+
+---
+
+## 여행 추천·일정 API (Travel pivot, 신규)
+
+> 기존 이민용 `/api/recommend`·`/api/detail`와 별개의 병렬 엔드포인트. 인증/결제/rate-limit 미적용(추후 별도 협의).
+
+### POST /api/travel/recommend
+
+규칙기반 여행지 추천 (LLM 미사용, 결정론적). `destinations.json` 기반.
+
+Request:
+```json
+{
+  "travel_month": 7,
+  "nights": 4,
+  "budget_krw": 2000000,
+  "interests": ["휴양", "자연"],
+  "persona": "힐링 휴양러",
+  "preferred_regions": ["동남아"],
+  "companions": {"type": "커플(허니문)", "headcount": 2, "ages": ["성인"], "accessibility": ["없음"], "pace": "휴양 위주"},
+  "top_n": 5,
+  "language": "한국어"
+}
+```
+- `travel_month`: 1~12 또는 null, `nights`: 0~60, `top_n`: 1~10.
+
+Response 200:
+```json
+{
+  "top_destinations": [
+    {"id": "DPS", "city": "Bali", "city_kr": "발리", "country": "Indonesia", "country_id": "ID",
+     "vibe": "휴양", "budget_tier": "low", "best_months": [5,6,7,8,9], "peak_season": "...",
+     "avg_flight_hours_from_icn": 7.0, "activities": ["..."], "must_see": ["..."],
+     "monthly_cost_usd": 1200, "est_cost_krw": 1234000, "score": 8.4,
+     "reasons": [{"point": "..."}]}
+  ],
+  "notes": ["...폴백 안내(있을 때)..."]
+}
+```
+
+### POST /api/travel/itinerary
+
+선택 여행지 + 여행 프로필 → Gemini가 N박M일 일정 생성 → 마크다운 + 파싱 dict 반환.
+
+Request:
+```json
+{
+  "destination": {"city": "Bali", "city_kr": "발리", "country_id": "ID", "vibe": "휴양",
+                  "best_months": [5,6,7,8,9], "activities": ["해변","서핑"], "must_see": ["우붓"],
+                  "est_cost_krw": 1500000},
+  "travel_profile": {"language": "한국어", "nights": 4, "travel_month": 7,
+                     "interests": ["휴양"], "persona": "힐링 휴양러",
+                     "companions": {"type": "커플(허니문)", "pace": "휴양 위주"}}
+}
+```
+
+Response 200:
+```json
+{"markdown": "# 🗺️ 발리 4박 5일 ...", "itinerary": {"city": "...", "days": [...], "...": "..."}}
+```
+에러: `502` — LLM 서비스 불안정.
 
 ---
 
