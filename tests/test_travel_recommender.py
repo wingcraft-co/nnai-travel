@@ -67,3 +67,63 @@ def test_interest_persona_bonus_lifts_partial():
 def test_quality_score_weighted():
     # safety 8 * 0.6 + access 6 * 0.4 = 4.8 + 2.4 = 7.2
     assert R.quality_score(_dest(safety=8, accessibility_score=6)) == 7.2
+
+
+# ---------- 동행 블록 ----------
+
+def test_companion_none_is_neutral():
+    assert R.companion_score(_dest(), None) == 6.0
+
+def test_companion_solo_is_neutral():
+    assert R.companion_score(_dest(), {"type": "혼자"}) == 6.0
+
+def test_companion_couple_uses_romantic():
+    assert R.companion_score(_dest(romantic=9), {"type": "커플(허니문)"}) == 9.0
+
+def test_companion_family_kids_penalizes_long_flight():
+    near = R.companion_score(_dest(kid_friendly=8, safety=8, avg_flight_hours_from_icn=5.0),
+                             {"type": "가족", "ages": ["유아"]})
+    far = R.companion_score(_dest(kid_friendly=8, safety=8, avg_flight_hours_from_icn=14.0),
+                            {"type": "가족", "ages": ["유아"]})
+    assert near == 8.0          # (8+8)/2
+    assert far == 6.5           # (8+8)/2 - 1.5
+
+def test_companion_senior_uses_accessibility():
+    s = R.companion_score(_dest(accessibility_score=9, safety=7, avg_flight_hours_from_icn=5.0),
+                          {"type": "효도여행", "ages": ["60대+"]})
+    assert s == 8.0             # (9+7)/2
+
+def test_companion_friends_uses_nightlife():
+    assert R.companion_score(_dest(nightlife=9), {"type": "친구그룹"}) == 9.0
+
+
+# ---------- 접근성 하드 필터 ----------
+
+def test_accessibility_no_companion_passes():
+    assert R.passes_accessibility(_dest(accessibility_score=3), None) is True
+
+def test_accessibility_wheelchair_excludes_low():
+    assert R.passes_accessibility(_dest(accessibility_score=4),
+                                  {"accessibility": ["휠체어"]}) is False
+    assert R.passes_accessibility(_dest(accessibility_score=6),
+                                  {"accessibility": ["휠체어"]}) is True
+
+def test_accessibility_none_need_passes():
+    assert R.passes_accessibility(_dest(accessibility_score=3),
+                                  {"accessibility": ["없음"]}) is True
+
+
+# ---------- 권역 필터 ----------
+
+def test_region_empty_passes_all():
+    assert R.passes_region(_dest(country_id="TH"), []) is True
+
+def test_region_muyeon_passes_all():
+    assert R.passes_region(_dest(country_id="TH"), ["무관"]) is True
+
+def test_region_match():
+    assert R.passes_region(_dest(country_id="TH"), ["동남아"]) is True
+    assert R.passes_region(_dest(country_id="JP"), ["동남아"]) is False
+
+def test_region_unknown_country_excluded_when_filtered():
+    assert R.passes_region(_dest(country_id="ZZ"), ["동남아"]) is False

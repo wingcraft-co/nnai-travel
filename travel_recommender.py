@@ -109,3 +109,63 @@ def quality_score(dest: dict) -> float:
     safety = dest.get("safety", 5)
     access = dest.get("accessibility_score", 5)
     return round(min(10.0, safety * 0.6 + access * 0.4), 3)
+
+
+# ── 동행 블록 ─────────────────────────────────────────────────
+
+_CHILD_AGES = {"유아", "초등", "청소년"}
+
+
+def companion_score(dest: dict, companions: dict | None) -> float:
+    """동행 구성별 적합도(0~10). 유형에 맞는 목적지 신호를 선택해 평가."""
+    if not companions:
+        return 6.0
+    ctype = companions.get("type") or ""
+    ages = companions.get("ages") or []
+    flight = dest.get("avg_flight_hours_from_icn", 8)
+    kid = dest.get("kid_friendly", 5)
+    romantic = dest.get("romantic", 5)
+    access = dest.get("accessibility_score", 5)
+    nightlife = dest.get("nightlife", 5)
+    safety = dest.get("safety", 5)
+
+    has_kid = any(a in _CHILD_AGES for a in ages)
+    has_senior = "60대+" in ages
+
+    if "커플" in ctype or "허니문" in ctype:
+        score = romantic
+    elif "가족" in ctype and has_kid:
+        score = (kid + safety) / 2
+        if flight > 8:
+            score -= 1.5
+    elif "효도" in ctype or has_senior:
+        score = (access + safety) / 2
+        if flight > 10:
+            score -= 1.5
+    elif "친구" in ctype:
+        score = nightlife
+    elif "회사" in ctype or "단체" in ctype:
+        score = (access + nightlife) / 2
+    else:  # 혼자 등
+        score = 6.0
+    return round(max(0.0, min(10.0, score)), 3)
+
+
+# ── 하드/소프트 필터 ─────────────────────────────────────────
+
+def passes_accessibility(dest: dict, companions: dict | None) -> bool:
+    """휠체어 니즈가 있으면 접근성 5 미만 목적지를 하드 제외."""
+    if not companions:
+        return True
+    needs = companions.get("accessibility") or []
+    if "휠체어" in needs and dest.get("accessibility_score", 5) < 5:
+        return False
+    return True
+
+
+def passes_region(dest: dict, preferred_regions: list[str]) -> bool:
+    """선호 권역 필터. 빈 리스트 또는 '무관' 포함 시 전체 통과."""
+    if not preferred_regions or "무관" in preferred_regions:
+        return True
+    region = _REGION_BY_COUNTRY.get(dest.get("country_id", ""), "")
+    return region in preferred_regions
