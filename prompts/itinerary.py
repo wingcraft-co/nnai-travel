@@ -4,6 +4,8 @@
 """
 from __future__ import annotations
 
+from prompts.itinerary_system import ITINERARY_SYSTEM_PROMPT, ITINERARY_SYSTEM_PROMPT_EN
+
 
 def nights_to_label(nights: int, language: str = "한국어") -> str:
     """N박 → 'N박 M일' 라벨. 0 이하면 당일치기."""
@@ -102,3 +104,71 @@ def persona_emphasis(persona: str, language: str = "한국어") -> str:
     if language == "English":
         return _PERSONA_EMPHASIS_EN.get(persona, "")
     return _PERSONA_EMPHASIS.get(persona, "")
+
+
+def build_itinerary_prompt(destination: dict, travel_profile: dict) -> list[dict]:
+    """선택 여행지 + 여행 프로필 → 일정 생성 messages list."""
+    language   = travel_profile.get("language", "한국어")
+    nights     = int(travel_profile.get("nights") or 0)
+    month      = travel_profile.get("travel_month")
+    interests  = travel_profile.get("interests") or []
+    persona    = travel_profile.get("persona") or ""
+    companions = travel_profile.get("companions") or {}
+    pace       = companions.get("pace") or ""
+
+    city       = destination.get("city", "")
+    city_kr    = destination.get("city_kr", city)
+    country_id = destination.get("country_id", "")
+    must_see   = destination.get("must_see") or []
+    activities = destination.get("activities") or []
+    est_krw    = destination.get("est_cost_krw")
+
+    label          = nights_to_label(nights, language)
+    pace_line      = pace_instruction(pace, language)
+    comp_line      = companion_instruction(companions, language)
+    interest_line  = interest_emphasis(interests, language)
+    persona_line   = persona_emphasis(persona, language)
+
+    # 지시 라인들(빈 문자열은 자동 제외)
+    directives = [d for d in (persona_line, interest_line, comp_line, pace_line) if d]
+    directive_block = ("\n".join(f"- {d}" for d in directives)) if directives else ""
+
+    en = language == "English"
+    must_see_str   = ", ".join(must_see) if must_see else ("none provided" if en else "제공된 명소 없음")
+    activities_str = ", ".join(activities) if activities else ("none provided" if en else "제공된 활동 없음")
+    est_str = ""
+    if est_krw:
+        est_str = (f"\nReference budget: about {est_krw:,} KRW per person."
+                   if en else f"\n참고 예산: 1인 약 {est_krw:,}원.")
+
+    if en:
+        month_line = f"Travel month: {month}" if month else "Travel month: flexible"
+        user_message = (
+            f"Destination: {city} ({country_id})\n"
+            f"Duration: {label}\n"
+            f"{month_line}\n"
+            f"Must-see spots: {must_see_str}\n"
+            f"Suggested activities: {activities_str}"
+            f"{est_str}\n\n"
+            f"Planning directives:\n{directive_block}\n\n"
+            "Write a complete day-by-day itinerary in pure JSON following the schema."
+        )
+        system_prompt = ITINERARY_SYSTEM_PROMPT_EN
+    else:
+        month_line = f"여행 시기: {month}월" if month else "여행 시기: 미정"
+        user_message = (
+            f"여행지: {city_kr} ({city}, {country_id})\n"
+            f"여행 기간: {label}\n"
+            f"{month_line}\n"
+            f"대표 명소: {must_see_str}\n"
+            f"추천 활동: {activities_str}"
+            f"{est_str}\n\n"
+            f"일정 구성 지침:\n{directive_block}\n\n"
+            "위 정보를 바탕으로 Day별 상세 일정을 반드시 순수 JSON으로 작성하세요."
+        )
+        system_prompt = ITINERARY_SYSTEM_PROMPT
+
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_message},
+    ]
