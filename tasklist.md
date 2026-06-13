@@ -52,3 +52,5 @@
 - Phase 1 완료: `utils/destinations.py`에 결정론적 파생 함수 + editorial 오버라이드 + `validate_destination`/로더 구현, `scripts/build_destinations.py`로 `city_scores.json`+큐레이션 CSV → `destinations.json`(52개, 큐레이션 10개) 빌드. 프론트 복사본 동기화, 통합 포함 테스트 22개 통과 + CI 등록.
 - Phase 2 완료: `travel_recommender.py`(시즌·예산·관심사/성향·안전품질·동행 5블록 가중합 + 권역 소프트폴백 + 접근성 하드필터) + `utils/travel_budget.py`(결정론적 경비/예산 추정) 신설. 기존 이민용 recommender.py·visa_db는 미변경.
 - 여행 추천엔진 테스트 43개(경비 8 + 엔진 35) 통과 + CI 등록. destinations.json 기반 결정론적 랭킹, 국가 중복 제거 없음.
+- Phase 3 완료: 여행 일정(N박M일) LLM 플래너 신설 — `prompts/itinerary.py`(프로필→프롬프트 헬퍼+빌더), `prompts/itinerary_system.py`(ko/en 스키마), `api/itinerary_parser.py`(robust 파싱 + Day별 마크다운 렌더). 기존 이민용 builder.py·parser.py 미변경.
+- 일정 플래너 테스트 30개(프롬프트 19 + 파서/렌더 11) 통과 + CI 등록. LLM 호출/엔드포인트 배선은 Phase 4 범위.
