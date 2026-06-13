@@ -25,7 +25,7 @@ def test_trip_cost_krw_known_value():
 def test_trip_cost_krw_zero_nights():
     # nights=0 → 항공료만
     cost = B.estimate_trip_cost_krw(_dest(1200, 7.0), nights=0)
-    assert cost == round(645 * 1400)
+    assert cost == round(B.estimate_flight_usd(7.0) * B.USD_KRW_FALLBACK)
 
 def test_trip_cost_krw_clamps_negative_nights():
     assert B.estimate_trip_cost_krw(_dest(1200, 7.0), nights=-3) == B.estimate_trip_cost_krw(_dest(1200, 7.0), nights=0)

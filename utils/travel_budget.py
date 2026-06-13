@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 USD_KRW_FALLBACK = 1400
+_DAYS_PER_MONTH = 30.0
 
 
 def estimate_flight_usd(flight_hours: float) -> int:
@@ -15,18 +16,13 @@ def estimate_flight_usd(flight_hours: float) -> int:
 
 def estimate_daily_usd(monthly_cost_usd: int) -> float:
     """월 생활비 → 1일 여행 경비 근사. 관광 보정 1.4배."""
-    return monthly_cost_usd / 30.0 * 1.4
+    return monthly_cost_usd / _DAYS_PER_MONTH * 1.4
 
 
 def estimate_trip_cost_krw(
-    dest: dict, nights: int, headcount: int = 1,
-    usd_krw: float = USD_KRW_FALLBACK,
+    dest: dict, nights: int, usd_krw: float = USD_KRW_FALLBACK,
 ) -> int:
-    """1인 기준 총 여행비(KRW) 추정.
-
-    예산은 spec상 '1인 총액'이므로 headcount는 1인 단가에 영향을 주지 않는다
-    (동행 인원은 동행 블록에서만 활용). 시그니처는 호출 호환성을 위해 유지한다.
-    """
+    """1인 기준 총 여행비(KRW) 추정. 비용은 1인 기준이며, 예산은 '1인 총액'이다."""
     nights = max(0, nights)
     flight = estimate_flight_usd(dest["avg_flight_hours_from_icn"])
     daily = estimate_daily_usd(dest["monthly_cost_usd"])
