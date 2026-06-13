@@ -176,3 +176,113 @@ def passes_region(dest: dict, preferred_regions: list[str]) -> bool:
         return True
     region = _REGION_BY_COUNTRY.get(dest.get("country_id", ""), "")
     return region in preferred_regions
+
+
+# ── 합성 점수 + 추천 ─────────────────────────────────────────
+
+def score_destination(dest: dict, profile: dict) -> dict:
+    """단일 목적지의 블록별 점수 + 가중합 + 예상 경비 반환."""
+    month = profile.get("travel_month")
+    interests = profile.get("interests") or []
+    persona = profile.get("persona") or ""
+    budget_krw = int(profile.get("budget_krw") or 0)
+    nights = int(profile.get("nights") or 0)
+    companions = profile.get("companions")
+
+    s = season_score(dest, month)
+    est = estimate_trip_cost_krw(dest, nights)
+    b = budget_fit_score(est, budget_krw)
+    i = interest_score(dest, interests, persona)
+    q = quality_score(dest)
+    c = companion_score(dest, companions)
+
+    w = _BLOCK_WEIGHTS
+    total = (s * w["season"] + b * w["budget"] + i * w["interest"]
+             + q * w["quality"] + c * w["companion"])
+    return {
+        "season": round(s, 3), "budget": round(b, 3), "interest": round(i, 3),
+        "quality": round(q, 3), "companion": round(c, 3),
+        "est_cost_krw": est, "total": round(min(10.0, max(0.0, total)), 2),
+    }
+
+
+def _build_reasons(dest: dict, br: dict, profile: dict) -> list[dict[str, str]]:
+    reasons: list[dict[str, str]] = []
+    if br["season"] >= 9:
+        reasons.append({"point": f"{profile.get('travel_month')}월은 {dest['city_kr']} 여행 적기입니다."})
+    if br["budget"] >= 9 and int(profile.get("budget_krw") or 0) > 0:
+        reasons.append({"point": "예상 경비가 예산에 잘 맞습니다."})
+    if br["interest"] >= 7:
+        reasons.append({"point": "관심사와 맞는 액티비티가 풍부합니다."})
+    if br["companion"] >= 8:
+        reasons.append({"point": "동행 구성에 잘 맞는 분위기입니다."})
+    if not reasons:
+        reasons.append({"point": "현재 조건에서 종합 점수가 가장 높습니다."})
+    return reasons[:3]
+
+
+def _build_notes(region_relaxed: bool, access_relaxed: bool) -> list[str]:
+    notes: list[str] = []
+    if region_relaxed:
+        notes.append("선호 권역만으로는 후보가 부족해 권역 조건을 완화했습니다.")
+    if access_relaxed:
+        notes.append("접근성 조건을 만족하는 후보가 부족해 일부 완화했습니다.")
+    return notes
+
+
+def recommend_destinations(profile: dict, top_n: int = 5, debug: bool = False) -> dict:
+    """destinations.json 전체를 점수화해 상위 top_n 추천. 국가 중복 제거 없음."""
+    dests = load_destinations()
+    preferred = profile.get("preferred_regions") or []
+    companions = profile.get("companions")
+
+    def collect(region_filter: bool, access_filter: bool):
+        rows = []
+        for d in dests:
+            if region_filter and not passes_region(d, preferred):
+                continue
+            if access_filter and not passes_accessibility(d, companions):
+                continue
+            br = score_destination(d, profile)
+            rows.append((br["total"], d, br))
+        return rows
+
+    rows = collect(region_filter=True, access_filter=True)
+    region_relaxed = False
+    access_relaxed = False
+    if len(rows) < top_n:
+        rows = collect(region_filter=False, access_filter=True)
+        region_relaxed = True
+    if len(rows) < top_n:
+        rows = collect(region_filter=False, access_filter=False)
+        access_relaxed = True
+
+    rows.sort(key=lambda x: x[0], reverse=True)
+    top = rows[:top_n]
+
+    cards: list[dict] = []
+    for _score, d, br in top:
+        cards.append({
+            "id": d["id"], "city": d["city"], "city_kr": d["city_kr"],
+            "country": d["country"], "country_id": d["country_id"],
+            "vibe": d["vibe"], "budget_tier": d["budget_tier"],
+            "best_months": d["best_months"], "peak_season": d["peak_season"],
+            "avg_flight_hours_from_icn": d["avg_flight_hours_from_icn"],
+            "activities": d["activities"], "must_see": d["must_see"],
+            "monthly_cost_usd": d["monthly_cost_usd"],
+            "est_cost_krw": br["est_cost_krw"], "score": br["total"],
+            "reasons": _build_reasons(d, br, profile),
+        })
+
+    result = {
+        "top_destinations": cards,
+        "notes": _build_notes(region_relaxed, access_relaxed),
+    }
+    logger.info("[recommend_destinations] top_n=%d returned=%d region_relaxed=%s access_relaxed=%s",
+                top_n, len(cards), region_relaxed, access_relaxed)
+    if debug:
+        result["debug"] = {
+            "weights": _BLOCK_WEIGHTS,
+            "scored": [{"id": d["id"], **br} for _s, d, br in top],
+        }
+    return result

@@ -145,3 +145,72 @@ def test_companion_kid_penalty_boundary_no_penalty_at_threshold():
     s = R.companion_score(_dest(kid_friendly=8, safety=8, avg_flight_hours_from_icn=8.0),
                           {"type": "가족", "ages": ["유아"]})
     assert s == 8.0
+
+
+# ---------- 합성 점수 ----------
+
+def test_score_destination_returns_breakdown():
+    profile = {"travel_month": 12, "nights": 4, "budget_krw": 1500000,
+               "interests": ["휴양"], "persona": "힐링 휴양러",
+               "companions": {"type": "커플(허니문)"}}
+    br = R.score_destination(_dest(best_months=[11, 12, 1]), profile)
+    for k in ("season", "budget", "interest", "quality", "companion", "est_cost_krw", "total"):
+        assert k in br
+    assert 0.0 <= br["total"] <= 10.0
+    assert br["season"] == 10.0
+
+
+# ---------- recommend_destinations 통합 ----------
+
+@pytest.fixture
+def beach_profile():
+    return {
+        "travel_month": 1, "nights": 5, "budget_krw": 2000000,
+        "interests": ["휴양", "자연"], "persona": "힐링 휴양러",
+        "preferred_regions": ["동남아"],
+        "companions": {"type": "친구그룹", "headcount": 3, "ages": ["성인"]},
+    }
+
+def test_recommend_returns_top_n(beach_profile):
+    out = R.recommend_destinations(beach_profile, top_n=5)
+    assert len(out["top_destinations"]) == 5
+
+def test_recommend_scores_descending(beach_profile):
+    out = R.recommend_destinations(beach_profile, top_n=5)
+    scores = [c["score"] for c in out["top_destinations"]]
+    assert scores == sorted(scores, reverse=True)
+
+def test_recommend_respects_region(beach_profile):
+    out = R.recommend_destinations(beach_profile, top_n=5)
+    for c in out["top_destinations"]:
+        assert R._REGION_BY_COUNTRY.get(c["country_id"]) == "동남아"
+
+def test_recommend_card_shape(beach_profile):
+    out = R.recommend_destinations(beach_profile, top_n=3)
+    c = out["top_destinations"][0]
+    for k in ("id", "city", "city_kr", "country", "country_id", "vibe",
+              "budget_tier", "best_months", "must_see", "est_cost_krw",
+              "score", "reasons"):
+        assert k in c
+    assert c["reasons"]
+
+def test_recommend_wheelchair_excludes_low_access():
+    profile = {"travel_month": None, "nights": 4, "budget_krw": 0,
+               "interests": [], "preferred_regions": [],
+               "companions": {"type": "가족", "accessibility": ["휠체어"]}}
+    out = R.recommend_destinations(profile, top_n=10)
+    from utils.destinations import get_destination
+    for c in out["top_destinations"]:
+        assert get_destination(c["id"])["accessibility_score"] >= 5
+
+def test_recommend_region_relaxed_note():
+    # 미주만 선호하지만 top_n이 커서 권역 완화 발생 → notes 채워짐
+    profile = {"travel_month": None, "nights": 3, "budget_krw": 0,
+               "interests": [], "preferred_regions": ["미주"]}
+    out = R.recommend_destinations(profile, top_n=50)
+    assert any("권역" in n for n in out["notes"])
+
+def test_recommend_debug_payload(beach_profile):
+    out = R.recommend_destinations(beach_profile, top_n=3, debug=True)
+    assert "debug" in out
+    assert out["debug"]["weights"] == R._BLOCK_WEIGHTS
