@@ -20,6 +20,7 @@ from api.billing import router as billing_router
 from api.dashboard import router as dashboard_router
 from api.detail_cache import build_detail_cache_key, build_detail_quota, derive_city_id
 from api.journey import router as journey_router
+from api.travel import router as travel_router
 from api.onboarding import router as onboarding_router
 from api.visits import router as visits_router
 from utils.db import (
@@ -155,6 +156,7 @@ app.include_router(auth_router)
 app.include_router(billing_router)
 app.include_router(dashboard_router)
 app.include_router(journey_router, prefix="/api")
+app.include_router(travel_router, prefix="/api/travel")
 app.include_router(onboarding_router)
 app.include_router(visits_router, prefix="/api")
 
