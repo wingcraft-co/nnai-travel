@@ -42,3 +42,69 @@ def parse_itinerary(raw_text: str) -> dict:
         "days": [], "packing_tips": [], "local_tips": [],
         "_raw": raw_text,
     }
+
+
+def _fmt_krw(value) -> str:
+    try:
+        return f"{int(value):,}"
+    except (TypeError, ValueError):
+        return "0"
+
+
+def format_itinerary_markdown(data: dict) -> str:
+    """파싱된 일정 dict → 마크다운 문자열. 누락 필드는 우아하게 생략."""
+    if not data:
+        return "일정을 불러오지 못했습니다."
+
+    is_en = data.get("_language") == "English"
+    lines: list[str] = []
+
+    title = data.get("trip_title") or data.get("city_kr") or data.get("city") or (
+        "Travel Itinerary" if is_en else "여행 일정")
+    lines.append(f"# 🗺️ {title}\n")
+
+    summary = data.get("summary")
+    if summary:
+        lines.append(f"> {summary}\n")
+
+    for day in data.get("days", []):
+        day_num = day.get("day", "")
+        theme = day.get("theme", "")
+        header = f"## Day {day_num}"
+        if theme:
+            header += f" — {theme}"
+        lines.append(header)
+        for item in day.get("items", []):
+            time = item.get("time", "")
+            activity = item.get("activity", "")
+            category = item.get("category", "")
+            tip = item.get("tip", "")
+            cat = f" `{category}`" if category else ""
+            head = f"- **{time}**{cat} {activity}".rstrip()
+            lines.append(head)
+            if tip:
+                lines.append(f"  - 💡 {tip}")
+        lines.append("")
+
+    budget = data.get("budget_estimate_krw")
+    if budget:
+        label = "Estimated Budget" if is_en else "예상 경비"
+        unit = "KRW per person" if is_en else "원 (1인 기준)"
+        lines.append(f"## 💰 {label}\n")
+        lines.append(f"- {_fmt_krw(budget)} {unit}\n")
+
+    packing = data.get("packing_tips") or []
+    if packing:
+        lines.append(f"## 🎒 {'Packing Tips' if is_en else '준비물'}\n")
+        for p in packing:
+            lines.append(f"- {p}")
+        lines.append("")
+
+    local = data.get("local_tips") or []
+    if local:
+        lines.append(f"## 📌 {'Local Tips' if is_en else '현지 팁'}\n")
+        for t in local:
+            lines.append(f"- {t}")
+        lines.append("")
+
+    return "\n".join(lines)

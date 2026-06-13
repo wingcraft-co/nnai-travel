@@ -40,3 +40,41 @@ def test_parse_failure_returns_fallback():
     out = P.parse_itinerary("완전히 깨진 응답 — JSON 없음")
     assert out["days"] == []
     assert "_raw" in out
+
+
+# ---------- format_itinerary_markdown ----------
+
+def test_format_has_title_and_summary():
+    md = P.format_itinerary_markdown(_GOOD)
+    assert "발리 4박 5일 힐링 여행" in md
+    assert "발리가 당신을 기다리고 있어요." in md
+
+def test_format_renders_each_day():
+    md = P.format_itinerary_markdown(_GOOD)
+    assert "Day 1" in md and "Day 2" in md
+    assert "짱구 해변" in md
+
+def test_format_renders_item_category_and_tip():
+    md = P.format_itinerary_markdown(_GOOD)
+    assert "관광" in md       # category 라벨
+    assert "선셋 추천" in md   # tip
+
+def test_format_renders_budget_krw():
+    md = P.format_itinerary_markdown(_GOOD)
+    assert "1,500,000" in md
+
+def test_format_renders_packing_and_local_tips():
+    md = P.format_itinerary_markdown(_GOOD)
+    assert "여름옷" in md
+    assert "사롱 착용" in md
+
+def test_format_empty_days_is_graceful():
+    md = P.format_itinerary_markdown({"trip_title": "", "days": []})
+    assert isinstance(md, str)  # 크래시 없음
+
+def test_format_english_labels():
+    data = dict(_GOOD)
+    data["_language"] = "English"
+    md = P.format_itinerary_markdown(data)
+    assert "Day 1" in md
+    assert "Packing" in md or "Budget" in md
