@@ -46,3 +46,7 @@
 - 가이드 페이지 결제 요청에 `city_id`를 포함하고, Polar 직링크는 provider가 `polar`일 때만 사용하도록 BFF/프론트 우회 조건을 제한함.
 - PortOne V2 브라우저 SDK를 추가하고 `/api/billing/complete` 서버 검증 플로우를 구현함: `paymentId` 조회 → `PAID`/금액/`customData` 검증 → `report_purchases` 구매 기록 저장.
 - 프론트 결제 버튼은 PortOne SDK 결제창 호출 후 구매 확정 페이지로 복귀하며, 모바일 리디렉션 복귀 시에도 가이드 페이지가 `paymentId`를 재검증하도록 처리함.
+
+## 2026-06-13
+- 여행지 추천+협업 플래너 전환 설계 spec(`docs/specs/2026-06-13-travel-pivot-design.md`)과 Phase 1 데이터 모델 구현 계획(`docs/plans/2026-06-13-phase1-destinations-data-model.md`) 작성. 기존 nnai 코드/DB와 완전 격리(별도 repo·Railway `nnai-travel-prd`) 원칙 명시.
+- Phase 1 완료: `utils/destinations.py`에 결정론적 파생 함수 + editorial 오버라이드 + `validate_destination`/로더 구현, `scripts/build_destinations.py`로 `city_scores.json`+큐레이션 CSV → `destinations.json`(52개, 큐레이션 10개) 빌드. 프론트 복사본 동기화, 통합 포함 테스트 22개 통과 + CI 등록.
