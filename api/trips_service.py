@@ -28,7 +28,11 @@ class InviteExpired(Exception):
 
 def create_trip(repo, owner_user_id: str, title: str, destination: dict,
                 start_date, end_date) -> dict:
-    """Trip 생성 + owner 멤버 등록 → 직렬화된 trip."""
+    """Trip 생성 + owner 멤버 등록 → 직렬화된 trip.
+
+    repo는 create_trip + add_member 두 호출을 하나의 트랜잭션으로 처리해야 한다
+    (실 DB repo 구현 책임 — 중간 실패 시 owner 없는 orphan trip 방지).
+    """
     trip = repo.create_trip(owner_user_id, title or "", destination, start_date, end_date)
     repo.add_member(trip["id"], owner_user_id, "owner")
     return L.serialize_trip(trip, repo.get_members(trip["id"]))
@@ -68,7 +72,10 @@ def create_invite(repo, trip_id: str, user_id: str, base_url: str,
 
 def join_trip(repo, token: str, user_id: str,
               now: datetime | None = None) -> dict:
-    """초대 토큰으로 합류. 무효 → InviteInvalid, 만료 → InviteExpired. → trip 상세."""
+    """초대 토큰으로 합류. 무효 → InviteInvalid, 만료 → InviteExpired. → trip 상세.
+
+    이미 멤버인 유저의 재합류는 의도적으로 멱등(repo.add_member가 ON CONFLICT DO NOTHING).
+    """
     invite = repo.get_invite(token)
     if invite is None:
         raise InviteInvalid(token)
