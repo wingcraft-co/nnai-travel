@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from api import trips_service as SVC
 from api import trips_logic as L
+from api import trip_plan_service as PSVC
 
 router = APIRouter()
 
@@ -52,6 +53,26 @@ class _DbRepo:
         from utils.db import db_get_invite
         return db_get_invite(token)
 
+    def create_plan_item(self, trip_id, day, time, place, category, added_by, memo):
+        from utils.db import db_create_plan_item
+        return db_create_plan_item(trip_id, day, time, place, category, added_by, memo)
+
+    def list_plan_items(self, trip_id):
+        from utils.db import db_list_plan_items
+        return db_list_plan_items(trip_id)
+
+    def get_plan_item(self, item_id):
+        from utils.db import db_get_plan_item
+        return db_get_plan_item(item_id)
+
+    def update_plan_item(self, item_id, day, time, place, category, memo):
+        from utils.db import db_update_plan_item
+        return db_update_plan_item(item_id, day, time, place, category, memo)
+
+    def delete_plan_item(self, item_id):
+        from utils.db import db_delete_plan_item
+        return db_delete_plan_item(item_id)
+
 
 def _repo():
     return _DbRepo()
@@ -77,6 +98,22 @@ class TripCreateRequest(BaseModel):
 
 class JoinRequest(BaseModel):
     token: str = Field(min_length=1, max_length=128)
+
+
+class PlanItemCreateRequest(BaseModel):
+    day: int = Field(ge=1, le=60)
+    time: str | None = Field(default=None, max_length=20)
+    place: str = Field(min_length=1, max_length=200)
+    category: str = Field(min_length=1, max_length=20)
+    memo: str | None = Field(default=None, max_length=500)
+
+
+class PlanItemUpdateRequest(BaseModel):
+    day: int = Field(ge=1, le=60)
+    time: str | None = Field(default=None, max_length=20)
+    place: str = Field(min_length=1, max_length=200)
+    category: str = Field(min_length=1, max_length=20)
+    memo: str | None = Field(default=None, max_length=500)
 
 
 @router.post("")
@@ -123,3 +160,63 @@ async def join_trip(req: JoinRequest, request: Request):
         raise HTTPException(status_code=400, detail="Invalid invite token.")
     except SVC.InviteExpired:
         raise HTTPException(status_code=410, detail="Invite link has expired.")
+
+
+@router.post("/{trip_id}/plan-items")
+async def add_plan_item(trip_id: str, req: PlanItemCreateRequest, request: Request):
+    user_id = _require_user(request)
+    try:
+        return PSVC.add_plan_item(_repo(), trip_id, user_id, day=req.day, time=req.time,
+                                  place=req.place, category=req.category, memo=req.memo)
+    except PSVC.TripNotFound:
+        raise HTTPException(status_code=404, detail="Trip not found.")
+    except PSVC.TripForbidden:
+        raise HTTPException(status_code=403, detail="Not a trip member.")
+    except PSVC.InvalidPlanItem as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{trip_id}/plan-items")
+async def list_plan_items(trip_id: str, request: Request):
+    user_id = _require_user(request)
+    try:
+        return {"plan_items": PSVC.list_plan_items(_repo(), trip_id, user_id)}
+    except PSVC.TripNotFound:
+        raise HTTPException(status_code=404, detail="Trip not found.")
+    except PSVC.TripForbidden:
+        raise HTTPException(status_code=403, detail="Not a trip member.")
+
+
+@router.patch("/{trip_id}/plan-items/{item_id}")
+async def update_plan_item(trip_id: str, item_id: int, req: PlanItemUpdateRequest, request: Request):
+    user_id = _require_user(request)
+    try:
+        return PSVC.update_plan_item(_repo(), trip_id, item_id, user_id, day=req.day,
+                                     time=req.time, place=req.place, category=req.category,
+                                     memo=req.memo)
+    except PSVC.TripNotFound:
+        raise HTTPException(status_code=404, detail="Trip not found.")
+    except PSVC.TripForbidden:
+        raise HTTPException(status_code=403, detail="Not a trip member.")
+    except PSVC.PlanItemNotFound:
+        raise HTTPException(status_code=404, detail="Plan item not found.")
+    except PSVC.PlanItemForbidden:
+        raise HTTPException(status_code=403, detail="No permission to edit this item.")
+    except PSVC.InvalidPlanItem as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/{trip_id}/plan-items/{item_id}")
+async def delete_plan_item(trip_id: str, item_id: int, request: Request):
+    user_id = _require_user(request)
+    try:
+        PSVC.delete_plan_item(_repo(), trip_id, item_id, user_id)
+        return {"deleted": True}
+    except PSVC.TripNotFound:
+        raise HTTPException(status_code=404, detail="Trip not found.")
+    except PSVC.TripForbidden:
+        raise HTTPException(status_code=403, detail="Not a trip member.")
+    except PSVC.PlanItemNotFound:
+        raise HTTPException(status_code=404, detail="Plan item not found.")
+    except PSVC.PlanItemForbidden:
+        raise HTTPException(status_code=403, detail="No permission to delete this item.")
