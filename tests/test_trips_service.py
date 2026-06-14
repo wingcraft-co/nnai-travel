@@ -87,3 +87,50 @@ def test_get_trip_detail_non_member_forbidden(repo):
 def test_get_trip_detail_missing_notfound(repo):
     with pytest.raises(SVC.TripNotFound):
         SVC.get_trip_detail(repo, "nope", "u1")
+
+
+# ---------- 초대 발급/합류 ----------
+
+def test_create_invite_member_ok(repo):
+    trip = SVC.create_trip(repo, "u1", "A", {"city": "X"}, None, None)
+    out = SVC.create_invite(repo, trip["id"], "u1", "https://nnai.app")
+    assert out["token"]
+    assert out["invite_url"].endswith(out["token"])
+    assert repo.get_invite(out["token"]) is not None
+
+def test_create_invite_non_member_forbidden(repo):
+    trip = SVC.create_trip(repo, "u1", "A", {"city": "X"}, None, None)
+    with pytest.raises(SVC.TripForbidden):
+        SVC.create_invite(repo, trip["id"], "stranger", "https://nnai.app")
+
+def test_create_invite_missing_trip_notfound(repo):
+    with pytest.raises(SVC.TripNotFound):
+        SVC.create_invite(repo, "nope", "u1", "https://nnai.app")
+
+def test_join_trip_adds_member(repo):
+    trip = SVC.create_trip(repo, "u1", "A", {"city": "X"}, None, None)
+    inv = SVC.create_invite(repo, trip["id"], "u1", "https://nnai.app")
+    out = SVC.join_trip(repo, inv["token"], "friend")
+    assert repo.get_member_role(trip["id"], "friend") == "member"
+    assert out["id"] == trip["id"]
+
+def test_join_trip_invalid_token(repo):
+    with pytest.raises(SVC.InviteInvalid):
+        SVC.join_trip(repo, "bogus", "friend")
+
+def test_join_trip_expired(repo):
+    trip = SVC.create_trip(repo, "u1", "A", {"city": "X"}, None, None)
+    past = datetime(2000, 1, 1, tzinfo=timezone.utc)
+    # 만료가 과거가 되도록 now를 미래로 주입
+    inv = SVC.create_invite(repo, trip["id"], "u1", "https://nnai.app", now=past)
+    future = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    with pytest.raises(SVC.InviteExpired):
+        SVC.join_trip(repo, inv["token"], "friend", now=future)
+
+def test_join_trip_idempotent(repo):
+    trip = SVC.create_trip(repo, "u1", "A", {"city": "X"}, None, None)
+    inv = SVC.create_invite(repo, trip["id"], "u1", "https://nnai.app")
+    SVC.join_trip(repo, inv["token"], "friend")
+    SVC.join_trip(repo, inv["token"], "friend")  # 재합류
+    members = [m for m in repo.get_members(trip["id"]) if m["user_id"] == "friend"]
+    assert len(members) == 1
