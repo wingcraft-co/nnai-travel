@@ -134,3 +134,10 @@ def test_join_trip_idempotent(repo):
     SVC.join_trip(repo, inv["token"], "friend")  # 재합류
     members = [m for m in repo.get_members(trip["id"]) if m["user_id"] == "friend"]
     assert len(members) == 1
+
+def test_join_trip_deleted_trip_invalid(repo):
+    trip = SVC.create_trip(repo, "u1", "A", {"city": "X"}, None, None)
+    inv = SVC.create_invite(repo, trip["id"], "u1", "https://nnai.app")
+    del repo.trips[trip["id"]]  # 초대 후 trip 삭제 (레이스)
+    with pytest.raises(SVC.InviteInvalid):
+        SVC.join_trip(repo, inv["token"], "friend")

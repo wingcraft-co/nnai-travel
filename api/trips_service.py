@@ -85,4 +85,6 @@ def join_trip(repo, token: str, user_id: str,
     trip_id = invite["trip_id"]
     repo.add_member(trip_id, user_id, "member")
     trip = repo.get_trip(trip_id)
+    if trip is None:
+        raise InviteInvalid(token)
     return L.serialize_trip(trip, repo.get_members(trip_id))

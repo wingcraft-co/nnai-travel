@@ -79,3 +79,16 @@ def test_join_expired_maps_410(monkeypatch):
     monkeypatch.setattr(SVC, "join_trip", boom)
     resp = _client().post("/api/trips/join", json={"token": "old"})
     assert resp.status_code == 410
+
+
+def test_list_trips_requires_login():
+    resp = _client_anon().get("/api/trips")
+    assert resp.status_code == 401
+
+def test_create_invite_requires_login():
+    resp = _client_anon().post("/api/trips/t1/invites")
+    assert resp.status_code == 401
+
+def test_join_requires_login():
+    resp = _client_anon().post("/api/trips/join", json={"token": "x"})
+    assert resp.status_code == 401

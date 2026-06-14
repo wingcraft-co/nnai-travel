@@ -1821,7 +1821,7 @@ def consume_rate_limit_token(
 # ---------------------------------------------------------------------------
 
 def db_create_trip(trip_id: str, owner_user_id: str, title: str, destination: dict, start_date, end_date) -> dict:
-    """trips 행 삽입 후 dict 반환."""
+    """trips 행 + owner trip_members 행을 단일 트랜잭션으로 삽입(orphan trip 방지) 후 trip dict 반환."""
     conn = get_conn()
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
@@ -1833,6 +1833,11 @@ def db_create_trip(trip_id: str, owner_user_id: str, title: str, destination: di
             (trip_id, owner_user_id, title, Json(destination), start_date, end_date),
         )
         row = cur.fetchone()
+        cur.execute(
+            "INSERT INTO trip_members (trip_id, user_id, role) VALUES (%s, %s, 'owner') "
+            "ON CONFLICT (trip_id, user_id) DO NOTHING;",
+            (trip_id, owner_user_id),
+        )
     conn.commit()
     return dict(row)
 

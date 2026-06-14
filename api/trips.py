@@ -1,6 +1,8 @@
 """api/trips.py — Trip 저장/초대 FastAPI 라우터 (얇은 어댑터).
 
 로직은 api/trips_service.py. 이 모듈은 auth 게이팅·예외 매핑·repo 어댑터만 담당.
+_DbRepo는 utils.db를 메서드 내부에서 lazy import 한다 — 모듈 로드 시 psycopg2를
+끌어오지 않아야 CI에서 라우터 테스트(가짜 repo)가 실 DB 없이 동작하기 때문.
 """
 from __future__ import annotations
 
