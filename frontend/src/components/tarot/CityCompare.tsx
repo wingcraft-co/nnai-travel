@@ -10,10 +10,14 @@ interface CityCompareProps {
   onRetry: () => void;
 }
 
-const USD_TO_KRW = 1400;
+function formatKrw(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return "예산 정보 확인 중";
+  return `약 ${Math.round(value / 10000)}만원`;
+}
 
-function toKRW(usd: number): string {
-  return `약 ${Math.round((usd * USD_TO_KRW) / 10000)}만원`;
+function formatMonths(months: CityData["best_months"]): string {
+  if (!Array.isArray(months) || months.length === 0) return "추천 시기 확인 중";
+  return months.map((month) => `${month}월`).join(", ");
 }
 
 const fadeUp = (delay: number) => ({
@@ -57,16 +61,14 @@ function CityCardWithAccordion({ city }: { city: CityData }) {
                 color: "var(--muted-foreground)",
               }}
             >
-              {/* Visa info */}
+              {/* Travel info */}
               <div className="space-y-1">
-                <p>
-                  비자: {city.visa_type}
-                  {city.stay_months != null && ` · ${city.stay_months}개월`}
-                  {` · ${city.renewable ? "갱신 가능" : "갱신 불가"}`}
-                </p>
-                <p>예산: {toKRW(city.monthly_cost_usd)} / 월</p>
-                {city.safety_score != null && <p>치안: {city.safety_score}/10</p>}
-                {city.english_score != null && <p>영어: {city.english_score}/10</p>}
+                {city.vibe && <p>분위기: {city.vibe}</p>}
+                <p>예상 경비: {formatKrw(city.est_cost_krw)}</p>
+                <p>추천 시기: {formatMonths(city.best_months)}</p>
+                {city.avg_flight_hours_from_icn != null && (
+                  <p>인천 출발 비행: 약 {city.avg_flight_hours_from_icn}시간</p>
+                )}
               </div>
 
               {/* Description */}
@@ -76,34 +78,18 @@ function CityCardWithAccordion({ city }: { city: CityData }) {
                 </p>
               )}
 
-              {/* Links */}
-              <div className="flex flex-wrap gap-3 text-xs">
-                {city.visa_url && (
-                  <a href={city.visa_url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>
-                    비자 정보 →
-                  </a>
-                )}
-                {city.flatio_search_url && (
-                  <a href={city.flatio_search_url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>
-                    숙소 찾기 →
-                  </a>
-                )}
-                {city.anyplace_search_url && (
-                  <a href={city.anyplace_search_url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>
-                    Anyplace →
-                  </a>
-                )}
-                {city.nomad_meetup_url && (
-                  <a href={city.nomad_meetup_url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>
-                    밋업 →
-                  </a>
-                )}
-              </div>
+              {city.activities && city.activities.length > 0 && (
+                <p className="text-xs leading-relaxed">추천 활동: {city.activities.slice(0, 4).join(", ")}</p>
+              )}
+
+              {city.must_see && city.must_see.length > 0 && (
+                <p className="text-xs leading-relaxed">가볼 곳: {city.must_see.slice(0, 4).join(", ")}</p>
+              )}
 
               {/* Data source */}
               {city.data_verified_date && (
                 <p className="text-xs" style={{ color: "color-mix(in srgb, var(--muted-foreground) 50%, transparent)" }}>
-                  데이터 기준: {city.data_verified_date} · Numbeo, NomadList
+                  데이터 기준: {city.data_verified_date}
                 </p>
               )}
             </div>
@@ -126,7 +112,7 @@ export default function CityCompare({ cities, onRetry }: CityCompareProps) {
     <div className="w-full max-w-5xl mx-auto px-4 py-10">
       {/* Header */}
       <motion.div {...fadeUp(0)} className="mb-8 text-center">
-        <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>도시 비교</h1>
+        <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>여행지 비교</h1>
         <p className="text-sm mt-1" style={{ color: "var(--muted-foreground)" }}>
           카드를 탭하면 상세 정보를 볼 수 있어요
         </p>
@@ -136,7 +122,7 @@ export default function CityCompare({ cities, onRetry }: CityCompareProps) {
           className="mt-4 px-6 py-2.5 text-sm font-medium transition-colors"
           style={{ border: "1px solid var(--border)", color: "var(--foreground)" }}
         >
-          전체 가이드 받기
+          일정 만들기
         </button>
       </motion.div>
 

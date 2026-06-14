@@ -29,7 +29,7 @@ const GUIDE_RESULT_RESTORE_KEY = "guide_result_restore_requested";
 // ── Stage ──────────────────────────────────────────────────────────
 
 type Stage = "loading" | DeckStage;
-// DeckStage = "selecting" | "revealing" | "reading" | "done"
+// DeckStage = "selecting" | "revealing" | "done"
 
 // ── Session persistence ────────────────────────────────────────────
 
@@ -47,7 +47,7 @@ interface SessionV2 {
 const SESSION_V2_KEY = "result_session_v2";
 
 function resolveRecommendEntry(payload: Record<string, unknown>): "quiz" | "direct" {
-  return payload.persona_type ? "quiz" : "direct";
+  return payload.persona_type || payload.persona ? "quiz" : "direct";
 }
 
 function resolveErrorKind(error: unknown): "network" | "http" | "invalid_payload" {
@@ -154,13 +154,12 @@ export default function ResultPage() {
       });
       if (!res.ok) throw new Error(`recommend error: ${res.status}`);
       const data = (await res.json()) as {
-        session_id: string;
-        card_count?: number;
-        parsed: Record<string, unknown>;
+        top_destinations?: CityData[];
+        notes?: string[];
       };
 
-      const topCities = (data.parsed?.top_cities ?? []) as CityData[];
-      if ((data.card_count ?? topCities.length) < 5 || topCities.length < 5) {
+      const topDestinations = data.top_destinations ?? [];
+      if (topDestinations.length < 5) {
         trackRecommendFailure({
           stage: "recommend",
           errorKind: "invalid_payload",
@@ -171,7 +170,7 @@ export default function ResultPage() {
       }
 
       trackRecommendSuccess({
-        cardCount: data.card_count ?? topCities.length,
+        cardCount: topDestinations.length,
         hasPersona,
       });
 
@@ -179,20 +178,22 @@ export default function ResultPage() {
       clearOnboardingFormDraft(localStorage);
       void clearServerOnboardingDrafts({ apiBase: API_BASE }).catch(() => undefined);
 
-      setSessionId(data.session_id);
-      setParsedData(data.parsed);
-      setAllCities(topCities);
-      setSelectedIndices([]);
-      setRevealedCities(null);
+      const syntheticSessionId = `travel-${Date.now()}`;
+      const destinationIndices = topDestinations.map((_, index) => index);
+      setSessionId(syntheticSessionId);
+      setParsedData(null);
+      setAllCities(topDestinations);
+      setSelectedIndices(destinationIndices);
+      setRevealedCities(topDestinations);
       setFlippedIndices([]);
       setStage("selecting");
 
       saveSession({
-        session_id: data.session_id,
-        allCities: topCities,
-        selectedIndices: [],
-        revealedCities: [],
-        parsedData: data.parsed,
+        session_id: syntheticSessionId,
+        allCities: topDestinations,
+        selectedIndices: destinationIndices,
+        revealedCities: topDestinations,
+        parsedData: null,
         stage: "selecting",
       });
     } catch (error) {
@@ -221,7 +222,7 @@ export default function ResultPage() {
           setSelectedIndices(restored.selectedIndices);
           setRevealedCities(restored.revealedCities as CityData[]);
           setParsedData(restored.parsedData);
-          setFlippedIndices([0, 1, 2]);
+          setFlippedIndices(restored.selectedIndices);
           setStage("done");
           return true;
         }
@@ -259,7 +260,7 @@ export default function ResultPage() {
         if (saved.session_id && saved.revealedCities?.length) {
           setSessionId(saved.session_id);
           setRevealedCities(saved.revealedCities);
-          setFlippedIndices([0, 1, 2]);
+          setFlippedIndices(saved.revealedCities.map((_, index) => index));
           setStage("done");
           return;
         }
@@ -282,35 +283,30 @@ export default function ResultPage() {
     });
   }
 
-  // ── Confirm → reveal → reading → done ──────────────────────────
+  // ── Confirm → client flip → done ───────────────────────────────
 
   async function handleConfirm() {
-    if (!sessionId || selectedIndices.length !== 3) return;
+    if (allCities.length === 0) return;
     setIsLoading(true);
     setError(null);
 
     try {
-      const res = await fetch("/api/reveal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: sessionId, selected_indices: selectedIndices }),
-      });
-      if (!res.ok) {
-        const errData = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(errData.error ?? `reveal error: ${res.status}`);
-      }
-      const data = (await res.json()) as { revealed_cities: CityData[] };
-      collectLibraryCities(data.revealed_cities);
-
-      setRevealedCities(data.revealed_cities);
+      const destinationIndices = allCities.map((_, index) => index);
+      collectLibraryCities(allCities);
+      setSelectedIndices(destinationIndices);
+      setRevealedCities(allCities);
       setFlippedIndices([]);
       setStage("revealing");
 
-      saveSession({ selectedIndices, revealedCities: data.revealed_cities, stage: "revealing" });
-      runFullSequence(data.revealed_cities);
+      saveSession({
+        selectedIndices: destinationIndices,
+        revealedCities: allCities,
+        stage: "revealing",
+      });
+      runFullSequence(allCities);
     } catch (err) {
       trackRecommendFailure({
-        stage: "reveal",
+        stage: "recommend",
         errorKind: resolveErrorKind(err),
       });
       setError(err instanceof Error ? err.message : "카드 열기에 실패했어요.");
@@ -324,16 +320,21 @@ export default function ResultPage() {
 
     (async () => {
       await delay(300);
-      setFlippedIndices([0]);
-      await delay(1800);
-      setFlippedIndices([0, 1]);
-      await delay(1800);
-      setFlippedIndices([0, 1, 2]);
-      await delay(2000);
+      const opened: number[] = [];
+      for (let i = 0; i < cities.length; i += 1) {
+        opened.push(i);
+        setFlippedIndices([...opened]);
+        await delay(700);
+      }
+      await delay(900);
 
       setStage("done");
       trackResultRevealComplete(cities.length);
-      saveSession({ revealedCities: cities, stage: "done" });
+      saveSession({
+        selectedIndices: cities.map((_, index) => index),
+        revealedCities: cities,
+        stage: "done",
+      });
     })();
   }
 
@@ -387,22 +388,22 @@ export default function ResultPage() {
             </>
           ) : (
             <p className="animate-pulse text-sm text-muted-foreground">
-              맞춤 도시를 분석하고 있어요...
+              맞춤 여행지를 분석하고 있어요...
             </p>
           )}
         </div>
       )}
 
-      {/* Deck: selecting → revealing → reading → done (5장 고정) */}
+      {/* Deck: selecting → revealing → done (5장 고정) */}
       {isDeckStage && (
         <div className="flex min-h-full flex-1 flex-col items-center justify-center gap-6 px-4 py-10">
           {stage === "selecting" && (
             <div className="text-center">
               <h1 className="font-serif text-xl font-bold text-foreground mb-1">
-                당신의 도시를 선택하세요
+                당신을 위한 여행지 TOP 5
               </h1>
               <p className="text-sm text-muted-foreground">
-                끌리는 카드 3장을 선택하면 도시가 열립니다
+                카드를 열면 추천 여행지가 순서대로 공개됩니다
               </p>
             </div>
           )}
@@ -410,7 +411,7 @@ export default function ResultPage() {
           {stage === "revealing" && (
             <div className="text-center">
               <h1 className="font-serif text-xl font-bold text-foreground mb-1">
-                카드가 열립니다
+                여행지 카드가 열립니다
               </h1>
             </div>
           )}
@@ -423,7 +424,7 @@ export default function ResultPage() {
             stage={stage as DeckStage}
             cities={allCities}
             selectedIndices={selectedIndices}
-            revealedCities={revealedCities}
+            revealedCities={revealedCities ?? allCities}
             flippedIndices={flippedIndices}
             onToggleSelect={toggleSelect}
             onConfirm={handleConfirm}

@@ -21,7 +21,8 @@ export interface NormalizedCompletedResultSession {
   parsedData: Record<string, unknown> | null;
 }
 
-const COMPLETED_CARD_COUNT = 3;
+const LEGACY_COMPLETED_CARD_COUNT = 3;
+const TRAVEL_COMPLETED_CARD_COUNT = 5;
 
 function isCityLike(value: unknown): value is ResultSessionCityLike {
   return Boolean(value && typeof value === "object" && "city" in value && "country_id" in value);
@@ -76,13 +77,16 @@ export function normalizeCompletedResultSession(
   const revealedCities = Array.isArray(session.revealedCities)
     ? session.revealedCities.filter(isCityLike)
     : [];
-  if (revealedCities.length < COMPLETED_CARD_COUNT) return null;
+  if (revealedCities.length < LEGACY_COMPLETED_CARD_COUNT) return null;
 
   const allCities = Array.isArray(session.allCities)
     ? session.allCities.filter(isCityLike)
     : [];
 
-  const expectedCount = COMPLETED_CARD_COUNT;
+  const expectedCount =
+    revealedCities.length >= TRAVEL_COMPLETED_CARD_COUNT
+      ? TRAVEL_COMPLETED_CARD_COUNT
+      : LEGACY_COMPLETED_CARD_COUNT;
   const selectedIndices =
     normalizeSelectedIndices(session.selectedIndices, allCities.length, expectedCount) ??
     inferSelectedIndices(allCities, revealedCities, expectedCount);

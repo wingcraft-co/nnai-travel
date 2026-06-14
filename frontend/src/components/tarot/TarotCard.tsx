@@ -68,6 +68,16 @@ function CityTitle({ title }: { title: string }) {
   );
 }
 
+function formatTravelCost(value: number | null | undefined): string | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return null;
+  return `약 ${Math.round(value / 10000)}만원`;
+}
+
+function formatBestMonths(months: CityData["best_months"]): string | null {
+  if (!Array.isArray(months) || months.length === 0) return null;
+  return months.slice(0, 3).map((month) => `${month}월`).join("·");
+}
+
 // ── Back Face ─────────────────────────────────────────────────────
 
 function BackFace({ isSelected, size }: { isSelected: boolean; size: CardSize }) {
@@ -135,6 +145,9 @@ function FrontFace({
 }) {
   const cfg = SIZE_CONFIG[size];
   const flag = countryFlagEmoji(cityData.country_id);
+  const cost = formatTravelCost(cityData.est_cost_krw);
+  const bestMonths = formatBestMonths(cityData.best_months);
+  const tags = [cityData.vibe, cost, bestMonths].filter(Boolean).slice(0, 3);
 
   return (
     <div
@@ -170,6 +183,23 @@ function FrontFace({
         >
           {cityData.city}, {cityData.country_id}
         </p>
+        {tags.length > 0 && (
+          <div className="mt-3 flex max-w-full flex-wrap justify-center gap-1">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className="max-w-full truncate px-1.5 py-0.5 font-mono text-[9px]"
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: 9999,
+                  color: "var(--muted-foreground)",
+                }}
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Bottom divider */}

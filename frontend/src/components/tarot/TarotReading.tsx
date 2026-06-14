@@ -5,9 +5,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { CityData } from "./types";
 import { countryFlagEmoji } from "@/lib/country-flag";
 
-const USD_TO_KRW = 1400;
-function toKRW(usd: number): string {
-  return `약 ${Math.round((usd * USD_TO_KRW) / 10000)}만원`;
+function formatKrw(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return "확인 중";
+  return `약 ${Math.round(value / 10000)}만원`;
+}
+
+function formatMonths(months: CityData["best_months"]): string {
+  if (!Array.isArray(months) || months.length === 0) return "확인 중";
+  return months.map((month) => `${month}월`).join(", ");
 }
 
 interface TarotReadingProps {
@@ -55,13 +60,12 @@ function CityReading({
   isLast: boolean;
 }) {
   const flag = countryFlagEmoji(city.country_id);
-  const readingText = city.reading_text ?? "";
+  const readingText =
+    city.reading_text ??
+    city.reasons?.map((reason) => reason.point).filter(Boolean).join(" ") ??
+    city.city_description ??
+    "";
   const { displayed, done } = useTypingEffect(readingText, 50);
-
-  const visaDays =
-    city.visa_free_days > 0
-      ? `무비자 ${city.visa_free_days}일`
-      : "비자 필요";
 
   return (
     <motion.div
@@ -73,7 +77,7 @@ function CityReading({
     >
       {/* Card number */}
       <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-        Card {index + 1} of 3
+        Destination {index + 1}
       </span>
 
       {/* City header */}
@@ -112,29 +116,29 @@ function CityReading({
             <div className="flex flex-col items-center gap-1">
               <span className="text-lg">💰</span>
               <span className="text-xs uppercase tracking-widest text-muted-foreground">
-                Monthly
+                Budget
               </span>
               <span className="text-sm font-medium text-foreground">
-                {toKRW(city.monthly_cost_usd)}
+                {formatKrw(city.est_cost_krw)}
               </span>
             </div>
             <div className="flex flex-col items-center gap-1">
-              <span className="text-lg">🛂</span>
+              <span className="text-lg">🗓️</span>
               <span className="text-xs uppercase tracking-widest text-muted-foreground">
-                Visa
+                Best
               </span>
               <span className="text-sm font-medium text-foreground">
-                {visaDays}
+                {formatMonths(city.best_months)}
               </span>
             </div>
-            {city.internet_mbps != null && (
+            {city.avg_flight_hours_from_icn != null && (
               <div className="flex flex-col items-center gap-1">
-                <span className="text-lg">📶</span>
+                <span className="text-lg">✈️</span>
                 <span className="text-xs uppercase tracking-widest text-muted-foreground">
-                  Internet
+                  Flight
                 </span>
                 <span className="text-sm font-medium text-foreground">
-                  {city.internet_mbps} Mbps
+                  약 {city.avg_flight_hours_from_icn}시간
                 </span>
               </div>
             )}
@@ -153,7 +157,7 @@ function CityReading({
           onClick={onNext}
           className="px-8 py-3 text-sm font-semibold bg-primary text-primary-foreground transition-opacity"
         >
-          {isLast ? "리딩 완료" : "다음 카드 →"}
+          {isLast ? "리딩 완료" : "다음 여행지 →"}
         </motion.button>
       )}
     </motion.div>
@@ -201,19 +205,19 @@ export default function TarotReading({
           onClick={onComplete}
           className="w-full py-3.5 text-sm font-semibold bg-primary text-primary-foreground transition-opacity"
         >
-          도시 비교 보기 →
+          여행지 비교 보기 →
         </button>
 
         <div className="flex flex-col items-center gap-3">
           <p className="text-xs text-muted-foreground">
-            더 깊은 가이드가 필요하다면
+            이 여행지로 일정을 만들고 싶다면
           </p>
           <button
             type="button"
             onClick={handleGuideClick}
             className="px-6 py-2.5 text-sm font-medium border border-border text-foreground hover:border-primary transition-colors"
           >
-            전체 가이드 받기
+            일정 만들기
           </button>
         </div>
 

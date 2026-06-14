@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocale } from "next-intl";
-import { Banknote, Stamp, Wifi, X, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+import { Banknote, Calendar, Plane, X, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import TarotCard from "./TarotCard";
 import type { CityData } from "./types";
 import {
@@ -79,6 +79,21 @@ function CityTitle({ title }: { title: string }) {
   );
 }
 
+function formatTravelCost(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return "확인 중";
+  return `약 ${Math.round(value / 10000).toLocaleString("ko-KR")}만원`;
+}
+
+function formatBestMonths(months: CityData["best_months"], locale: string): string {
+  if (!Array.isArray(months) || months.length === 0) return locale === "en" ? "Checking" : "확인 중";
+  return months.map((month) => `${month}${locale === "en" ? "" : "월"}`).join(locale === "en" ? ", " : ", ");
+}
+
+function shortList(items: string[] | null | undefined, limit = 4): string {
+  if (!Array.isArray(items) || items.length === 0) return "";
+  return items.slice(0, limit).join(", ");
+}
+
 // ── Stage type ────────────────────────────────────────────────────
 
 export type DeckStage = "selecting" | "revealing" | "done";
@@ -108,7 +123,7 @@ function getPersonalizedInsight(
     return "열대 기후는 자유로운 성향과 자연스럽게 맞아요.";
   }
   // 4) free_spirit + 무비자 90일+
-  if (persona === "free_spirit" && city.visa_free_days >= 90) {
+  if (persona === "free_spirit" && (city.visa_free_days ?? 0) >= 90) {
     return "비자 걱정 없이 90일, 자유롭게 머물 수 있는 조건이에요.";
   }
   // 5) free_spirit + 갱신 가능
@@ -116,8 +131,8 @@ function getPersonalizedInsight(
     return "갱신 가능한 비자라 눌러앉고 싶어지면 그냥 있어도 돼요.";
   }
   // 6) 단기 체류 + 무비자 60일+
-  if (timeline?.includes("단기") && city.visa_free_days >= 60) {
-    return `단기 체류라면 비자 없이 바로 들어갈 수 있어요. (${city.visa_free_days}일)`;
+  if (timeline?.includes("단기") && (city.visa_free_days ?? 0) >= 60) {
+    return `단기 체류라면 비자 없이 바로 들어갈 수 있어요. (${city.visa_free_days ?? 0}일)`;
   }
   return null;
 }
@@ -297,9 +312,18 @@ function LightboxFrontContent({
   krwRate: number;
 }) {
   const flag = countryFlagEmoji(city.country_id);
-  const monthly = formatMonthly(city.monthly_cost_usd, locale, krwRate);
-  const visa = formatVisa(city.visa_free_days, locale);
-  const internet = formatInternet(city.internet_mbps);
+  const travelCost = formatTravelCost(city.est_cost_krw);
+  const bestMonths = formatBestMonths(city.best_months, locale);
+  const flightHours =
+    city.avg_flight_hours_from_icn != null
+      ? locale === "en"
+        ? `${city.avg_flight_hours_from_icn}h`
+        : `약 ${city.avg_flight_hours_from_icn}시간`
+      : locale === "en"
+        ? "Checking"
+        : "확인 중";
+  const activityList = shortList(city.activities);
+  const mustSeeList = shortList(city.must_see);
 
   // Personalized insight (ko only)
   const [personalInsight, setPersonalInsight] = useState<string | null>(null);
@@ -361,35 +385,32 @@ function LightboxFrontContent({
     window.location.assign(buildGoogleLoginUrl(API_BASE, returnTo));
   }
 
-  function handleDetailClick() {
-    const basePath = guidePathForCity(city, locale);
-    const path = appendDevPreviewQuery(basePath, readDevPreview());
+  function handlePlanClick() {
     try {
-      localStorage.setItem("selected_guide_city_id", city.id || city.city);
+      sessionStorage.setItem("selected_destination", JSON.stringify(city));
     } catch {
-      // ignore storage failures; navigation still works
+      // ignore storage failures; the placeholder state still renders
     }
     trackResultCardInteraction({
       action: "guide_click",
       cityId: city.id ?? undefined,
     });
-    window.location.assign(path);
   }
 
-  const showLoginCta = locale === "ko" && isLoggedIn === false;
-  const showDetailCta = locale === "ko" && isLoggedIn === true;
-  const showDetailLoadingCta = locale === "ko" && isLoggedIn === null;
+  const showLoginCta = false;
+  const showDetailCta = false;
+  const showDetailLoadingCta = false;
   const normalizedVisaType = normalizeVisaType(city.visa_type, city.country);
   const climateLabel = formatClimate(city.climate, locale);
   const isEn = locale === "en";
 
   // i18n 방어막 — 한국어 전용 데이터는 en locale에서 생략
   const showCityKr = !isEn && !!city.city_kr;
-  const showCityInsight = !isEn && !!city.city_insight;
+  const showCityInsight = !isEn && (!!city.city_insight || !!city.vibe);
   const showCityDescription = !isEn && !!city.city_description;
   // visa_type에 한글 잔존(대응 영문 없는 "없음/무비자" 계열)이면 en locale에서 섹션 생략
   const showVisaSection =
-    !!normalizedVisaType && !(isEn && /[가-힣]/.test(normalizedVisaType));
+    false && !!normalizedVisaType && !(isEn && /[가-힣]/.test(normalizedVisaType));
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -425,16 +446,22 @@ function LightboxFrontContent({
         }}
       >
         <Banknote className="w-4 h-4" style={{ color: "var(--muted-foreground)" }} />
-        <Stamp className="w-4 h-4" style={{ color: "var(--muted-foreground)" }} />
-        <Wifi className="w-4 h-4" style={{ color: "var(--muted-foreground)" }} />
+        <Calendar className="w-4 h-4" style={{ color: "var(--muted-foreground)" }} />
+        <Plane className="w-4 h-4" style={{ color: "var(--muted-foreground)" }} />
 
-        <span className="text-[10px] uppercase leading-tight" style={{ color: "var(--muted-foreground)", letterSpacing: "0.05em" }}>MONTHLY</span>
-        <span className="text-[10px] uppercase leading-tight" style={{ color: "var(--muted-foreground)", letterSpacing: "0.05em" }}>{visa.label}</span>
-        <span className="text-[10px] uppercase leading-tight" style={{ color: "var(--muted-foreground)", letterSpacing: "0.05em" }}>INTERNET</span>
+        <span className="text-[10px] uppercase leading-tight" style={{ color: "var(--muted-foreground)", letterSpacing: "0.05em" }}>
+          {isEn ? "BUDGET" : "예상경비"}
+        </span>
+        <span className="text-[10px] uppercase leading-tight" style={{ color: "var(--muted-foreground)", letterSpacing: "0.05em" }}>
+          {isEn ? "BEST" : "추천시기"}
+        </span>
+        <span className="text-[10px] uppercase leading-tight" style={{ color: "var(--muted-foreground)", letterSpacing: "0.05em" }}>
+          {isEn ? "FLIGHT" : "비행"}
+        </span>
 
-        <span className="text-[13px] font-bold leading-tight" style={{ color: "var(--foreground)" }}>{monthly}</span>
-        <span className="text-[13px] font-bold leading-tight" style={{ color: "var(--foreground)" }}>{visa.value}</span>
-        <span className="text-[13px] font-bold leading-tight" style={{ color: "var(--foreground)" }}>{internet}</span>
+        <span className="text-[13px] font-bold leading-tight" style={{ color: "var(--foreground)" }}>{travelCost}</span>
+        <span className="text-[13px] font-bold leading-tight" style={{ color: "var(--foreground)" }}>{bestMonths}</span>
+        <span className="text-[13px] font-bold leading-tight" style={{ color: "var(--foreground)" }}>{flightHours}</span>
       </div>
 
       {/* Body — scrolls independently so long copy never clips the bottom CTA */}
@@ -442,7 +469,7 @@ function LightboxFrontContent({
         {/* 1. City insight — 도시 한 줄 slogan (감성 intro, ko only) */}
         {showCityInsight && (
           <p className="text-xs italic leading-snug text-center" style={{ color: "var(--primary)" }}>
-            {city.city_insight}
+            {city.city_insight ?? city.vibe}
           </p>
         )}
 
@@ -506,9 +533,32 @@ function LightboxFrontContent({
           </p>
         )}
 
+        {activityList && (
+          <div className="flex flex-col gap-1">
+            <h3 className="font-serif text-[13px] font-bold" style={{ color: "var(--foreground)" }}>
+              {isEn ? "Good For" : "추천 활동"}
+            </h3>
+            <p className="leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+              {activityList}
+            </p>
+          </div>
+        )}
+
+        {mustSeeList && (
+          <div className="flex flex-col gap-1">
+            <h3 className="font-serif text-[13px] font-bold" style={{ color: "var(--foreground)" }}>
+              {isEn ? "Must See" : "가볼 곳"}
+            </h3>
+            <p className="leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+              {mustSeeList}
+            </p>
+          </div>
+        )}
+
         {/* 5. Tags — 임계 돌파 강점 top 3 + climate (neutral descriptor) */}
         {(() => {
           const tags = computeCityTags(city, locale);
+          if (city.vibe) tags.unshift(city.vibe);
           if (tags.length === 0 && !climateLabel) return null;
           return (
             <div className="flex flex-wrap gap-1.5">
@@ -570,6 +620,31 @@ function LightboxFrontContent({
             </p>
           );
         })()}
+
+        <div
+          className="sticky bottom-0 mt-auto flex shrink-0 flex-col gap-2 pt-3"
+          style={{
+            background:
+              "linear-gradient(to bottom, color-mix(in srgb, var(--card) 0%, transparent), var(--card) 18%)",
+          }}
+        >
+          <button
+            type="button"
+            onClick={handlePlanClick}
+            className="w-full cursor-pointer py-2.5 text-center font-mono text-xs font-medium"
+            style={{
+              background: "var(--primary)",
+              color: "var(--primary-foreground)",
+              borderRadius: 4,
+              letterSpacing: "0.03em",
+            }}
+          >
+            {isEn ? "Save for itinerary" : "이 여행지로 일정 만들기"}
+          </button>
+          <p className="text-center text-[10px]" style={{ color: "var(--muted-foreground)" }}>
+            {isEn ? "Itinerary builder opens in the next phase." : "일정 생성 기능은 다음 단계에서 연결됩니다."}
+          </p>
+        </div>
 
         {showDetailLoadingCta && (
           <div
@@ -644,7 +719,7 @@ function LightboxFrontContent({
           >
             <button
               type="button"
-              onClick={handleDetailClick}
+              onClick={handlePlanClick}
               className="w-full cursor-pointer py-2.5 text-center font-mono text-xs font-medium"
               style={{
                 background: "var(--primary)",
@@ -786,7 +861,7 @@ export default function TarotDeck({
   isLoading,
 }: TarotDeckProps) {
   const count = cities.length;
-  const allSelected = selectedIndices.length === MAX_SELECT;
+  const allSelected = count > 0;
   const isSelecting = stage === "selecting";
   const isRevealing = stage === "revealing";
   const isDone = stage === "done";
@@ -798,7 +873,7 @@ export default function TarotDeck({
 
   // OAuth 복귀 후 lightbox 자동 복원 — sessionStorage에 pending_login_city_id 저장된 경우
   useEffect(() => {
-    if (!isPostReveal || !revealedCities) return;
+    if (!isPostReveal) return;
     let pendingId = "";
     try {
       pendingId = normalizeRestoreKey(sessionStorage.getItem(PENDING_LOGIN_CITY_KEY));
@@ -806,10 +881,10 @@ export default function TarotDeck({
       return;
     }
     if (!pendingId) return;
-    const pos = revealedCities.findIndex(
+    const pos = cities.findIndex(
       (c) => c && cityRestoreKeys(c).includes(pendingId)
     );
-    if (pos < 0 || selectedIndices[pos] === undefined) {
+    if (pos < 0) {
       try {
         sessionStorage.removeItem(PENDING_LOGIN_CITY_KEY);
       } catch {
@@ -822,8 +897,8 @@ export default function TarotDeck({
     } catch {
       // ignore storage failures
     }
-    setLightboxStartIndex(selectedIndices[pos]);
-  }, [isPostReveal, revealedCities, selectedIndices]);
+    setLightboxStartIndex(pos);
+  }, [isPostReveal, cities]);
 
   const locale = useLocale();
   const isEn = locale === "en";
@@ -832,19 +907,17 @@ export default function TarotDeck({
 
   function getCardState(i: number): "back" | "front" | "locked" {
     if (!isPostReveal) return "back";
-    return selectedIndices.includes(i) ? "front" : "locked";
+    return "front";
   }
 
   function getCityForCard(i: number): CityData | null {
-    if (!isPostReveal || !revealedCities) return null;
-    const pos = selectedIndices.indexOf(i);
-    return pos >= 0 ? (revealedCities[pos] ?? null) : null;
+    if (!isPostReveal) return null;
+    return cities[i] ?? null;
   }
 
   function isCardFlipped(i: number): boolean {
     if (!isPostReveal) return false;
-    const seqIdx = selectedIndices.indexOf(i);
-    return seqIdx >= 0 && flippedIndices.includes(seqIdx);
+    return flippedIndices.includes(i);
   }
 
   // ── Lightbox cards (5장 전체, 공개/잠금 혼합) ───────────────────
@@ -852,16 +925,14 @@ export default function TarotDeck({
   const lightboxCards: LightboxCard[] = useMemo(() => {
     if (!isPostReveal) return [];
     return Array.from({ length: count }, (_, i) => {
-      const pos = selectedIndices.indexOf(i);
-      const isFront = pos >= 0;
-      const city = isFront ? (revealedCities?.[pos] ?? null) : null;
+      const city = cities[i] ?? null;
       return {
-        state: isFront ? ("front" as const) : ("locked" as const),
+        state: "front" as const,
         city,
         orderNumber: i + 1,
       };
     });
-  }, [count, isPostReveal, revealedCities, selectedIndices]);
+  }, [cities, count, isPostReveal]);
 
   // ── Render card ─────────────────────────────────────────────────
 
@@ -873,15 +944,13 @@ export default function TarotDeck({
 
     const handleClick = () => {
       if (isSelecting && !isLoading) {
-        onToggleSelect(i);
+        return;
       } else if (isDone) {
-        if (isSelected && city) {
+        if (city) {
           trackResultCardInteraction({
             action: "open_city",
             cityId: city.id ?? undefined,
           });
-        } else if (!isSelected) {
-          trackResultCardInteraction({ action: "open_locked" });
         }
         setLightboxStartIndex(i);
       }
@@ -893,9 +962,9 @@ export default function TarotDeck({
         state={state}
         size="sm"
         cityData={city}
-        isSelected={isSelecting && isSelected}
+        isSelected={false}
         isFlipped={flipped}
-        onClick={(isSelecting || isDone) ? handleClick : undefined}
+        onClick={isDone ? handleClick : undefined}
       />
     );
   }
@@ -944,12 +1013,12 @@ export default function TarotDeck({
             >
               {isLoading ? (
                 <span className="animate-pulse">
-                  {isEn ? "Loading cities..." : "도시를 불러오고 있어요..."}
+                  {isEn ? "Opening destinations..." : "여행지를 열고 있어요..."}
                 </span>
               ) : isEn ? (
-                "Open cards"
+                "Open destinations"
               ) : (
-                "카드 열기"
+                "여행지 카드 열기"
               )}
             </motion.button>
           )}

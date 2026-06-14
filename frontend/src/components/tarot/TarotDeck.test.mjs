@@ -17,23 +17,22 @@ test("detail CTA does not repeat the city-specific guide label above the button"
   assert.doesNotMatch(source, /\{city\.city_kr \|\| city\.city\} 상세 페이지 받기/);
 });
 
-test("detail CTA shows a pointer cursor when actionable", () => {
-  assert.match(source, /className="[^"]*cursor-pointer[^"]*"[\s\S]*?>\s*맞춤 보고서 받기/);
+test("travel plan CTA shows a pointer cursor when actionable", () => {
+  assert.match(source, /className="[^"]*cursor-pointer[^"]*"[\s\S]*?>\s*\{isEn \? "Save for itinerary" : "이 여행지로 일정 만들기"\}/);
   assert.doesNotMatch(source, />\s*상세 페이지 받기\s*</);
 });
 
-test("detail CTA area shows a loading state while auth status is pending", () => {
-  assert.match(source, /const showDetailLoadingCta = locale === "ko" && isLoggedIn === null/);
-  assert.match(source, /맞춤 보고서 준비 중/);
-  assert.match(source, /disabled/);
-  assert.match(source, /animate-pulse/);
+test("travel plan CTA stores the selected destination for the next phase", () => {
+  assert.match(source, /function handlePlanClick/);
+  assert.match(source, /sessionStorage\.setItem\("selected_destination", JSON\.stringify\(city\)\)/);
+  assert.match(source, /일정 생성 기능은 다음 단계에서 연결됩니다\./);
   assert.doesNotMatch(source, /Loader2/);
   assert.doesNotMatch(source, /animate-spin/);
 });
 
-test("city loading CTA dims the loading copy instead of changing the whole button", () => {
-  assert.match(source, /도시를 불러오고 있어요\.\.\./);
-  assert.match(source, /<span className="animate-pulse">\s*\{isEn\s*\?\s*"Loading cities\.\.\."\s*:\s*"도시를 불러오고 있어요\.\.\."\}\s*<\/span>/);
+test("destination loading CTA dims the loading copy instead of changing the whole button", () => {
+  assert.match(source, /여행지를 열고 있어요\.\.\./);
+  assert.match(source, /<span className="animate-pulse">\s*\{isEn\s*\?\s*"Opening destinations\.\.\."\s*:\s*"여행지를 열고 있어요\.\.\."\}\s*<\/span>/);
 });
 
 test("lightbox previous, next, and close controls show a pointer cursor", () => {
