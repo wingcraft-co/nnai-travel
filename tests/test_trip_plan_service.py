@@ -83,3 +83,68 @@ def test_list_plan_items_sorted(repo):
 def test_list_plan_items_non_member_forbidden(repo):
     with pytest.raises(SVC.TripForbidden):
         SVC.list_plan_items(repo, "t1", "stranger")
+
+
+# ---------- update / delete ----------
+
+def _seed_item(repo, added_by="u2"):
+    return SVC.add_plan_item(repo, "t1", added_by, day=1, time="09:00",
+                             place="우붓", category="관광", memo="원본")
+
+def test_update_by_author_ok(repo):
+    item = _seed_item(repo, added_by="u2")
+    out = SVC.update_plan_item(repo, "t1", item["id"], "u2", day=1, time="10:00",
+                               place="짱구", category="식사", memo="수정")
+    assert out["place"] == "짱구"
+    assert out["category"] == "식사"
+
+def test_update_by_owner_ok(repo):
+    item = _seed_item(repo, added_by="u2")
+    out = SVC.update_plan_item(repo, "t1", item["id"], "u1", day=1, time="10:00",
+                               place="짱구", category="식사", memo=None)
+    assert out["place"] == "짱구"
+
+def test_update_by_other_member_forbidden(repo):
+    item = _seed_item(repo, added_by="u1")
+    with pytest.raises(SVC.PlanItemForbidden):
+        SVC.update_plan_item(repo, "t1", item["id"], "u2", day=1, time=None,
+                             place="X", category="관광", memo=None)
+
+def test_update_missing_item_notfound(repo):
+    with pytest.raises(SVC.PlanItemNotFound):
+        SVC.update_plan_item(repo, "t1", 9999, "u1", day=1, time=None,
+                             place="X", category="관광", memo=None)
+
+def test_update_invalid_category(repo):
+    item = _seed_item(repo, added_by="u1")
+    with pytest.raises(SVC.InvalidPlanItem):
+        SVC.update_plan_item(repo, "t1", item["id"], "u1", day=1, time=None,
+                             place="X", category="없는카테고리", memo=None)
+
+def test_update_non_member_forbidden(repo):
+    item = _seed_item(repo, added_by="u1")
+    with pytest.raises(SVC.TripForbidden):
+        SVC.update_plan_item(repo, "t1", item["id"], "stranger", day=1, time=None,
+                             place="X", category="관광", memo=None)
+
+def test_delete_by_author_ok(repo):
+    item = _seed_item(repo, added_by="u2")
+    SVC.delete_plan_item(repo, "t1", item["id"], "u2")
+    assert repo.get_plan_item(item["id"]) is None
+
+def test_delete_by_other_member_forbidden(repo):
+    item = _seed_item(repo, added_by="u1")
+    with pytest.raises(SVC.PlanItemForbidden):
+        SVC.delete_plan_item(repo, "t1", item["id"], "u2")
+
+def test_delete_missing_item_notfound(repo):
+    with pytest.raises(SVC.PlanItemNotFound):
+        SVC.delete_plan_item(repo, "t1", 9999, "u1")
+
+def test_item_from_other_trip_notfound(repo):
+    item = _seed_item(repo, added_by="u1")
+    repo.trips["t2"] = {"id": "t2", "owner_user_id": "u1"}
+    repo.roles[("t2", "u1")] = "owner"
+    with pytest.raises(SVC.PlanItemNotFound):
+        SVC.update_plan_item(repo, "t2", item["id"], "u1", day=1, time=None,
+                             place="X", category="관광", memo=None)
