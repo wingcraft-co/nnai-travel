@@ -35,7 +35,7 @@ jobs:
 
       - name: Syntax check
         run: |
-          python -m py_compile app.py server.py recommender.py api/parser.py api/detail_cache.py api/journey.py api/onboarding.py prompts/builder.py api/visits.py utils/geocoding.py
+          python -m py_compile app.py server.py recommender.py api/parser.py api/detail_cache.py api/journey.py api/onboarding.py prompts/builder.py api/visits.py utils/geocoding.py api/trips.py
 
       - name: Backend regression tests
         run: |
@@ -83,7 +83,8 @@ jobs:
             tests/test_tax_warning.py \
             tests/test_verification_metadata.py \
             tests/test_visa_db.py \
-            tests/test_visits_api.py
+            tests/test_visits_api.py \
+            tests/test_trips_api.py
 
       - name: Frontend regression tests
         run: |

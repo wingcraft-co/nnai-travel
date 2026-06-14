@@ -13,6 +13,10 @@
 
 ## 작업 로그
 
+## 2026-06-14
+- `api/trips.py` FastAPI 라우터 구현 및 `server.py` 배선 완료 (POST/GET /api/trips, /api/trips/{id}, /api/trips/{id}/invites, POST /api/trips/join).
+- `tests/test_trips_api.py` TDD 테스트 파일 추가 (CI 전용, 로컬 fastapi 미설치 시 skip); CI workflow에도 등록.
+
 ## 2026-05-21
 - `tasklist.md`를 추가하고 날짜별 작업 요약 로그 형식을 정의함.
 - `CLAUDE.md`에도 작업자 이름 없이 날짜별 요약 2줄 정도를 남기는 규칙을 추가함.
