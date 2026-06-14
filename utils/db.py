@@ -663,6 +663,37 @@ def init_db(url: str | None = None) -> psycopg2.extensions.connection:
         cur.execute("CREATE INDEX IF NOT EXISTS idx_verified_cities_country_id ON verified_cities(country_id);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_verification_logs_entity ON verification_logs(entity_type, entity_id);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_verified_city_external_metrics_city_id ON verified_city_external_metrics(city_id);")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS trips (
+                id            TEXT PRIMARY KEY,
+                owner_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                title         TEXT NOT NULL DEFAULT '',
+                destination   JSONB NOT NULL,
+                start_date    DATE,
+                end_date      DATE,
+                created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS trip_members (
+                trip_id   TEXT NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+                user_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                role      TEXT NOT NULL DEFAULT 'member',
+                joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (trip_id, user_id)
+            );
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS trip_invites (
+                token      TEXT PRIMARY KEY,
+                trip_id    TEXT NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+                created_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                expires_at TIMESTAMPTZ NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_trip_members_user ON trip_members(user_id);")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_trip_invites_trip ON trip_invites(trip_id);")
     backfill_legacy_user_identity(conn)
     conn.commit()
     return conn
@@ -1780,3 +1811,120 @@ def consume_rate_limit_token(
             )
         conn.commit()
     return True
+
+
+# ---------------------------------------------------------------------------
+# Trip / Invite SQL repo functions
+# ---------------------------------------------------------------------------
+
+def db_create_trip(trip_id, owner_user_id, title, destination, start_date, end_date) -> dict:
+    """trips 행 삽입 후 dict 반환."""
+    from psycopg2.extras import Json, RealDictCursor
+    conn = get_conn()
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            """
+            INSERT INTO trips (id, owner_user_id, title, destination, start_date, end_date)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id, owner_user_id, title, destination, start_date, end_date, created_at;
+            """,
+            (trip_id, owner_user_id, title, Json(destination), start_date, end_date),
+        )
+        row = cur.fetchone()
+    conn.commit()
+    return dict(row)
+
+
+def db_get_trip(trip_id) -> dict | None:
+    from psycopg2.extras import RealDictCursor
+    conn = get_conn()
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            "SELECT id, owner_user_id, title, destination, start_date, end_date, created_at "
+            "FROM trips WHERE id = %s;",
+            (trip_id,),
+        )
+        row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def db_list_trips_for_user(user_id) -> list[dict]:
+    from psycopg2.extras import RealDictCursor
+    conn = get_conn()
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT t.id, t.owner_user_id, t.title, t.destination, t.start_date,
+                   t.end_date, t.created_at
+            FROM trips t
+            JOIN trip_members m ON m.trip_id = t.id
+            WHERE m.user_id = %s
+            ORDER BY t.created_at DESC;
+            """,
+            (user_id,),
+        )
+        rows = cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+def db_get_member_role(trip_id, user_id) -> str | None:
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT role FROM trip_members WHERE trip_id = %s AND user_id = %s;",
+            (trip_id, user_id),
+        )
+        row = cur.fetchone()
+    return row[0] if row else None
+
+
+def db_get_members(trip_id) -> list[dict]:
+    from psycopg2.extras import RealDictCursor
+    conn = get_conn()
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            "SELECT user_id, role, joined_at FROM trip_members "
+            "WHERE trip_id = %s ORDER BY joined_at;",
+            (trip_id,),
+        )
+        rows = cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+def db_add_member(trip_id, user_id, role) -> None:
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO trip_members (trip_id, user_id, role) VALUES (%s, %s, %s) "
+            "ON CONFLICT (trip_id, user_id) DO NOTHING;",
+            (trip_id, user_id, role),
+        )
+    conn.commit()
+
+
+def db_create_invite(token, trip_id, created_by, expires_at) -> dict:
+    from psycopg2.extras import RealDictCursor
+    conn = get_conn()
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            "INSERT INTO trip_invites (token, trip_id, created_by, expires_at) "
+            "VALUES (%s, %s, %s, %s) "
+            "RETURNING token, trip_id, created_by, expires_at, created_at;",
+            (token, trip_id, created_by, expires_at),
+        )
+        row = cur.fetchone()
+    conn.commit()
+    return dict(row)
+
+
+def db_get_invite(token) -> dict | None:
+    from psycopg2.extras import RealDictCursor
+    conn = get_conn()
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            "SELECT token, trip_id, created_by, expires_at, created_at "
+            "FROM trip_invites WHERE token = %s;",
+            (token,),
+        )
+        row = cur.fetchone()
+    return dict(row) if row else None
