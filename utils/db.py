@@ -697,6 +697,20 @@ def init_db(url: str | None = None) -> psycopg2.extensions.connection:
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_trip_members_user ON trip_members(user_id);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_trip_invites_trip ON trip_invites(trip_id);")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS trip_plan_items (
+                id         SERIAL PRIMARY KEY,
+                trip_id    TEXT NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+                day        INTEGER NOT NULL,
+                time       TEXT,
+                place      TEXT NOT NULL,
+                category   TEXT NOT NULL,
+                memo       TEXT,
+                added_by   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_trip_plan_items_trip ON trip_plan_items(trip_id);")
     backfill_legacy_user_identity(conn)
     conn.commit()
     return conn
@@ -1930,3 +1944,69 @@ def db_get_invite(token: str) -> dict | None:
         )
         row = cur.fetchone()
     return dict(row) if row else None
+
+
+def db_create_plan_item(trip_id: str, day: int, time, place: str, category: str, added_by: str, memo) -> dict:
+    """trip_plan_items 행 삽입 후 dict 반환."""
+    conn = get_conn()
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            """
+            INSERT INTO trip_plan_items (trip_id, day, time, place, category, added_by, memo)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, trip_id, day, time, place, category, memo, added_by, created_at;
+            """,
+            (trip_id, day, time, place, category, added_by, memo),
+        )
+        row = cur.fetchone()
+    conn.commit()
+    return dict(row)
+
+
+def db_list_plan_items(trip_id: str) -> list[dict]:
+    conn = get_conn()
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            "SELECT id, trip_id, day, time, place, category, memo, added_by, created_at "
+            "FROM trip_plan_items WHERE trip_id = %s "
+            "ORDER BY day, time NULLS LAST, id;",
+            (trip_id,),
+        )
+        rows = cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+def db_get_plan_item(item_id) -> dict | None:
+    conn = get_conn()
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            "SELECT id, trip_id, day, time, place, category, memo, added_by, created_at "
+            "FROM trip_plan_items WHERE id = %s;",
+            (item_id,),
+        )
+        row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def db_update_plan_item(item_id, day: int, time, place: str, category: str, memo) -> dict | None:
+    conn = get_conn()
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            """
+            UPDATE trip_plan_items
+            SET day = %s, time = %s, place = %s, category = %s, memo = %s
+            WHERE id = %s
+            RETURNING id, trip_id, day, time, place, category, memo, added_by, created_at;
+            """,
+            (day, time, place, category, memo, item_id),
+        )
+        row = cur.fetchone()
+    conn.commit()
+    return dict(row) if row else None
+
+
+def db_delete_plan_item(item_id) -> None:
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM trip_plan_items WHERE id = %s;", (item_id,))
+    conn.commit()
