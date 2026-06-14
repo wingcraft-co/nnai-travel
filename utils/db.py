@@ -49,6 +49,7 @@ _REQUIRED_SCHEMA_TABLES = {
     "tarot_sessions",
     "trip_invites",
     "trip_members",
+    "trip_plan_items",
     "trips",
     "user_city_plans",
     "users",
@@ -1946,7 +1947,7 @@ def db_get_invite(token: str) -> dict | None:
     return dict(row) if row else None
 
 
-def db_create_plan_item(trip_id: str, day: int, time, place: str, category: str, added_by: str, memo) -> dict:
+def db_create_plan_item(trip_id: str, day: int, time: str | None, place: str, category: str, added_by: str, memo: str | None) -> dict:
     """trip_plan_items 행 삽입 후 dict 반환."""
     conn = get_conn()
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -1976,7 +1977,7 @@ def db_list_plan_items(trip_id: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def db_get_plan_item(item_id) -> dict | None:
+def db_get_plan_item(item_id: int) -> dict | None:
     conn = get_conn()
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
@@ -1988,7 +1989,7 @@ def db_get_plan_item(item_id) -> dict | None:
     return dict(row) if row else None
 
 
-def db_update_plan_item(item_id, day: int, time, place: str, category: str, memo) -> dict | None:
+def db_update_plan_item(item_id: int, day: int, time: str | None, place: str, category: str, memo: str | None) -> dict | None:
     conn = get_conn()
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
@@ -2005,7 +2006,7 @@ def db_update_plan_item(item_id, day: int, time, place: str, category: str, memo
     return dict(row) if row else None
 
 
-def db_delete_plan_item(item_id) -> None:
+def db_delete_plan_item(item_id: int) -> None:
     conn = get_conn()
     with conn.cursor() as cur:
         cur.execute("DELETE FROM trip_plan_items WHERE id = %s;", (item_id,))
