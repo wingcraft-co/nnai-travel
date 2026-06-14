@@ -108,12 +108,7 @@ class PlanItemCreateRequest(BaseModel):
     memo: str | None = Field(default=None, max_length=500)
 
 
-class PlanItemUpdateRequest(BaseModel):
-    day: int = Field(ge=1, le=60)
-    time: str | None = Field(default=None, max_length=20)
-    place: str = Field(min_length=1, max_length=200)
-    category: str = Field(min_length=1, max_length=20)
-    memo: str | None = Field(default=None, max_length=500)
+PlanItemUpdateRequest = PlanItemCreateRequest
 
 
 @router.post("")
@@ -187,7 +182,7 @@ async def list_plan_items(trip_id: str, request: Request):
         raise HTTPException(status_code=403, detail="Not a trip member.")
 
 
-@router.patch("/{trip_id}/plan-items/{item_id}")
+@router.put("/{trip_id}/plan-items/{item_id}")
 async def update_plan_item(trip_id: str, item_id: int, req: PlanItemUpdateRequest, request: Request):
     user_id = _require_user(request)
     try:

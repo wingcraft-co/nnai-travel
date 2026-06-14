@@ -79,8 +79,8 @@ def test_update_plan_item_notfound_maps_404(monkeypatch):
     def boom(repo, tid, item_id, uid, **kw):
         raise PSVC.PlanItemNotFound(item_id)
     monkeypatch.setattr(PSVC, "update_plan_item", boom)
-    resp = _client().patch("/api/trips/t1/plan-items/9",
-                           json={"day": 1, "place": "X", "category": "관광"})
+    resp = _client().put("/api/trips/t1/plan-items/9",
+                         json={"day": 1, "place": "X", "category": "관광"})
     assert resp.status_code == 404
 
 
@@ -89,8 +89,8 @@ def test_update_plan_item_forbidden_maps_403(monkeypatch):
     def boom(repo, tid, item_id, uid, **kw):
         raise PSVC.PlanItemForbidden(item_id)
     monkeypatch.setattr(PSVC, "update_plan_item", boom)
-    resp = _client().patch("/api/trips/t1/plan-items/9",
-                           json={"day": 1, "place": "X", "category": "관광"})
+    resp = _client().put("/api/trips/t1/plan-items/9",
+                         json={"day": 1, "place": "X", "category": "관광"})
     assert resp.status_code == 403
 
 
@@ -104,4 +104,14 @@ def test_delete_plan_item_ok(monkeypatch):
 
 def test_delete_plan_item_requires_login():
     resp = _client_anon().delete("/api/trips/t1/plan-items/9")
+    assert resp.status_code == 401
+
+
+def test_list_plan_items_requires_login():
+    resp = _client_anon().get("/api/trips/t1/plan-items")
+    assert resp.status_code == 401
+
+def test_update_plan_item_requires_login():
+    resp = _client_anon().put("/api/trips/t1/plan-items/9",
+                              json={"day": 1, "place": "X", "category": "관광"})
     assert resp.status_code == 401
