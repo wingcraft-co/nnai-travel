@@ -10,8 +10,9 @@ def test_generate_trip_id_unique_and_urlsafe():
     assert all(c.isalnum() or c in "-_" for c in a)
 
 def test_generate_invite_token_unique():
-    assert L.generate_invite_token() != L.generate_invite_token()
-    assert len(L.generate_invite_token()) >= 24
+    a, b = L.generate_invite_token(), L.generate_invite_token()
+    assert a != b
+    assert len(a) >= 24
 
 def test_invite_expiry_default_14_days():
     now = datetime(2026, 6, 14, tzinfo=timezone.utc)
@@ -26,6 +27,7 @@ def test_is_invite_expired():
     now = datetime(2026, 6, 14, tzinfo=timezone.utc)
     assert L.is_invite_expired(now - timedelta(seconds=1), now) is True
     assert L.is_invite_expired(now + timedelta(days=1), now) is False
+    assert L.is_invite_expired(now, now) is True  # 경계 = 만료
 
 def test_build_invite_url():
     url = L.build_invite_url("https://nnai.app", "abc123")

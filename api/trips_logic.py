@@ -23,7 +23,7 @@ def invite_expiry(now: datetime, days: int = 14) -> datetime:
 
 
 def is_invite_expired(expires_at: datetime, now: datetime) -> bool:
-    """만료 여부."""
+    """만료 여부. 경계(expires_at == now)는 만료로 처리(보수적 — 초대 링크 안전)."""
     return expires_at <= now
 
 
@@ -38,7 +38,7 @@ def is_member_role(role: str | None) -> bool:
 
 
 def serialize_trip(trip: dict, members: list[dict]) -> dict:
-    """Trip row + 멤버 목록 → API 응답 dict."""
+    """Trip row + 멤버 목록 → API 응답 dict. 호출자가 id·owner_user_id 존재를 보장한다(DB row)."""
     return {
         "id": trip.get("id"),
         "owner_user_id": trip.get("owner_user_id"),
