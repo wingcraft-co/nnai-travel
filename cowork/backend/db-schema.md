@@ -28,6 +28,9 @@
 | `detail_guide_cache` | 상세 가이드 LLM 응답 캐시 + 단건 결제 보유 보고서 기록 (`city_id`, `is_free`) |
 | `tarot_sessions` | 타로 카드 5장 추천 결과 + reveal 게이팅 (TTL 24시간) |
 | `nomad_journey_stops` | 지원 도시 또는 검증된 여행 로그용 위치로 저장한 노마드 여정 stop |
+| `trips` | 저장된 여행(추천 보고서 스냅샷) |
+| `trip_members` | 여행 멤버 + 역할(owner/member) |
+| `trip_invites` | 여행 초대 링크 토큰(만료 14일) |
 | `visits` | 경로별 방문자 수 집계 |
 | `user_city_plans` | Pro 대시보드 활성 도시 플랜 |
 | `dashboard_widget_settings` | Pro 대시보드 위젯 설정 |
@@ -695,12 +698,99 @@ CREATE TABLE IF NOT EXISTS verification_logs (
 
 ---
 
+## trips
+
+추천 보고서를 저장한 여행. 소유자(owner)가 생성하며 동행을 초대해 공유합니다.
+
+```sql
+CREATE TABLE IF NOT EXISTS trips (
+    id            TEXT PRIMARY KEY,
+    owner_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title         TEXT NOT NULL DEFAULT '',
+    destination   JSONB NOT NULL,
+    start_date    DATE,
+    end_date      DATE,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+| 컬럼 | 타입 | Null | 설명 |
+|------|------|------|------|
+| `id` | TEXT PK | NOT NULL | URL-safe 토큰형 ID |
+| `owner_user_id` | TEXT FK→users(id) | NOT NULL | 생성자(소유자), ON DELETE CASCADE |
+| `title` | TEXT | NOT NULL | 여행 제목 (기본값 '') |
+| `destination` | JSONB | NOT NULL | 추천 보고서 스냅샷 |
+| `start_date` | DATE | NULL 가능 | 여행 시작일 |
+| `end_date` | DATE | NULL 가능 | 여행 종료일 |
+| `created_at` | TIMESTAMPTZ | NOT NULL | 생성 시각 (기본값 NOW()) |
+
+운영 메모:
+- 생성 시 owner의 `trip_members` 행이 같은 트랜잭션으로 함께 삽입됩니다(orphan 방지).
+
+---
+
+## trip_members
+
+여행별 멤버와 역할. (trip_id, user_id) 복합 PK로 중복 합류를 방지합니다.
+
+```sql
+CREATE TABLE IF NOT EXISTS trip_members (
+    trip_id   TEXT NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+    user_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role      TEXT NOT NULL DEFAULT 'member',
+    joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (trip_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_trip_members_user ON trip_members(user_id);
+```
+
+| 컬럼 | 타입 | Null | 설명 |
+|------|------|------|------|
+| `trip_id` | TEXT FK→trips(id) | NOT NULL | ON DELETE CASCADE |
+| `user_id` | TEXT FK→users(id) | NOT NULL | ON DELETE CASCADE |
+| `role` | TEXT | NOT NULL | `owner` 또는 `member` (기본값 'member') |
+| `joined_at` | TIMESTAMPTZ | NOT NULL | 합류 시각 (기본값 NOW()) |
+
+운영 메모:
+- 합류는 멱등입니다 (`INSERT ... ON CONFLICT (trip_id, user_id) DO NOTHING`).
+
+---
+
+## trip_invites
+
+여행 초대 링크 토큰. 만료(기본 14일) 전까지 재사용 가능한 멀티유즈 링크입니다.
+
+```sql
+CREATE TABLE IF NOT EXISTS trip_invites (
+    token      TEXT PRIMARY KEY,
+    trip_id    TEXT NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+    created_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_trip_invites_trip ON trip_invites(trip_id);
+```
+
+| 컬럼 | 타입 | Null | 설명 |
+|------|------|------|------|
+| `token` | TEXT PK | NOT NULL | URL-safe 초대 토큰 (24바이트) |
+| `trip_id` | TEXT FK→trips(id) | NOT NULL | ON DELETE CASCADE |
+| `created_by` | TEXT FK→users(id) | NOT NULL | 초대 발급자, ON DELETE CASCADE |
+| `expires_at` | TIMESTAMPTZ | NOT NULL | 만료 시각 (발급 +14일) |
+| `created_at` | TIMESTAMPTZ | NOT NULL | 발급 시각 (기본값 NOW()) |
+
+---
+
 ## 인덱스
 
 | 인덱스 | 대상 테이블 | 컬럼 | 용도 |
 |--------|------------|------|------|
 | `idx_verified_cities_country_id` | `verified_cities` | `country_id` | 국가별 도시 조회 최적화 |
 | `idx_verification_logs_entity` | `verification_logs` | `(entity_type, entity_id)` | 엔티티별 로그 조회 최적화 |
+| `idx_trip_members_user` | `trip_members` | `user_id` | 사용자별 참여 여행 조회 |
+| `idx_trip_invites_trip` | `trip_invites` | `trip_id` | 여행별 초대 조회 |
 
 ---
 
@@ -713,6 +803,12 @@ users (id)
   └── user_city_plans (user_id) — 1:N (active는 사용자당 1개)
   └── dashboard_widget_settings (user_id) — 1:1
   └── onboarding_drafts (user_id) — 1:1
+  └── trips (owner_user_id) — 1:N
+  └── trip_members (user_id) — 1:N
+
+trips (id)
+  └── trip_members (trip_id) — 1:N
+  └── trip_invites (trip_id) — 1:N
 
 visits — 독립 테이블 (외래키 없음)
 

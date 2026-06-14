@@ -13,10 +13,6 @@
 
 ## 작업 로그
 
-## 2026-06-14
-- `api/trips.py` FastAPI 라우터 구현 및 `server.py` 배선 완료 (POST/GET /api/trips, /api/trips/{id}, /api/trips/{id}/invites, POST /api/trips/join).
-- `tests/test_trips_api.py` TDD 테스트 파일 추가 (CI 전용, 로컬 fastapi 미설치 시 skip); CI workflow에도 등록.
-
 ## 2026-05-21
 - `tasklist.md`를 추가하고 날짜별 작업 요약 로그 형식을 정의함.
 - `CLAUDE.md`에도 작업자 이름 없이 날짜별 요약 2줄 정도를 남기는 규칙을 추가함.
@@ -60,3 +56,7 @@
 - 일정 플래너 테스트 30개(프롬프트 19 + 파서/렌더 11) 통과 + CI 등록. LLM 호출/엔드포인트 배선은 Phase 4 범위.
 - Phase 4(백엔드 배선) 완료: `api/travel_service.py`(순수 도메인 로직, LLM 주입 가능) + `api/travel.py`(FastAPI 라우터) 신설, `server.py`에 `/api/travel/recommend`·`/api/travel/itinerary` 연결. 기존 이민 엔드포인트 미변경. `cowork/backend/api-reference.md` 동기화.
 - 서비스 테스트 7개(로컬, 결정론적) + 라우터 테스트 4개(CI 전용, fastapi importorskip) + CI 등록. 인증/결제/rate-limit은 추후 별도 협의.
+
+## 2026-06-14
+- Phase 5(Trip & 동행 초대) 완료: `trips`/`trip_members`/`trip_invites` 테이블(init_db 멱등 DDL, 스키마 가드 등록) + SQL repo, `api/trips_logic.py`(토큰·만료·권한 순수 헬퍼)·`api/trips_service.py`(orchestration, 주입 repo, 도메인 예외)·`api/trips.py`(FastAPI 라우터, /api/trips 5개 엔드포인트) 신설, `server.py` 배선. `db-schema.md`·`api-reference.md` 동기화.
+- 순수 로직/서비스 테스트 23개(로컬 결정론적, 가짜 repo) + 라우터 테스트 9개(CI 전용, fastapi importorskip) + CI 등록. 초대는 만료(14일) 기반 멀티유즈 링크, 합류 멱등, Trip 생성은 owner 멤버와 단일 트랜잭션. SQL/실DB는 Railway 배포 시 검증.

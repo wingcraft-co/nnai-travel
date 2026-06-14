@@ -57,6 +57,8 @@ jobs:
             tests/test_itinerary_parser.py \
             tests/test_travel_service.py \
             tests/test_travel_api.py \
+            tests/test_trips_logic.py \
+            tests/test_trips_service.py \
             tests/test_detail_cache.py \
             tests/test_db.py \
             tests/test_db_connection_recovery.py \

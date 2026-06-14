@@ -18,15 +18,16 @@
 1. [인증 (Auth)](#인증)
 2. [추천 API](#추천-api)
 3. [여행 추천·일정 API (Travel pivot)](#여행-추천일정-api-travel-pivot-신규)
-4. [핀 API](#핀-api)
-5. [결제 API](#결제-api)
-5. [Onboarding Draft API](#onboarding-draft-api)
-6. [Pro 도시 대시보드 API](#pro-도시-대시보드-api)
-7. [Nomad Journey API](#nomad-journey-api)
-8. [방문자 카운터 API](#방문자-카운터-api)
-9. [모바일 API](#모바일-api)
-10. [공통 에러](#공통-에러)
-11. [CORS & 쿠키 정책](#cors--쿠키-정책)
+4. [Trip & 동행 초대 API](#trip--동행-초대-api-신규)
+5. [핀 API](#핀-api)
+6. [결제 API](#결제-api)
+7. [Onboarding Draft API](#onboarding-draft-api)
+8. [Pro 도시 대시보드 API](#pro-도시-대시보드-api)
+9. [Nomad Journey API](#nomad-journey-api)
+10. [방문자 카운터 API](#방문자-카운터-api)
+11. [모바일 API](#모바일-api)
+12. [공통 에러](#공통-에러)
+13. [CORS & 쿠키 정책](#cors--쿠키-정책)
 
 ---
 
@@ -551,6 +552,43 @@ Response 200:
 {"markdown": "# 🗺️ 발리 4박 5일 ...", "itinerary": {"city": "...", "days": [...], "...": "..."}}
 ```
 에러: `502` — LLM 서비스 불안정.
+
+---
+
+## Trip & 동행 초대 API (신규)
+
+> 추천 보고서를 Trip으로 저장하고 동행을 초대·합류시키는 협업 API. 모든 엔드포인트 로그인 필요(쿠키 세션). 미로그인 → 401.
+
+### POST /api/trips
+
+Trip 생성 (owner = 현재 유저, owner 멤버 자동 등록).
+
+Request:
+```json
+{"title": "발리 허니문", "destination": {"id": "DPS", "city": "Bali", "...": "..."}, "start_date": "2026-07-01", "end_date": "2026-07-05"}
+```
+- `title` 선택(기본 ''), `destination` 필수(추천 카드 스냅샷), `start_date`/`end_date` 선택.
+
+Response 200: `{"id": "...", "owner_user_id": "...", "title": "...", "destination": {...}, "start_date": "...", "end_date": "...", "created_at": "...", "members": [{"user_id": "...", "role": "owner", "joined_at": "..."}]}`
+
+### GET /api/trips
+
+내가 멤버(owner 포함)인 Trip 목록. Response 200: `{"trips": [ <trip 객체>, ... ]}`.
+
+### GET /api/trips/{trip_id}
+
+Trip 상세 + 멤버. 멤버만 조회 가능.
+- `403` 멤버 아님 / `404` 미존재.
+
+### POST /api/trips/{trip_id}/invites
+
+초대 링크 발급(멤버만). Response 200: `{"token": "...", "invite_url": "https://nnai.app/trips/join?token=...", "expires_at": "..."}`.
+- `403` 멤버 아님 / `404` 미존재. 만료 14일, 재사용 가능.
+
+### POST /api/trips/join
+
+초대 토큰으로 현재 유저를 멤버로 합류(멱등). Request: `{"token": "..."}`. Response 200: 합류한 Trip 상세(상동).
+- `400` 무효 토큰 / `410` 만료된 초대.
 
 ---
 
