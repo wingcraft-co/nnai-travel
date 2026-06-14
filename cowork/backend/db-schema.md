@@ -31,6 +31,7 @@
 | `trips` | 저장된 여행(추천 보고서 스냅샷) |
 | `trip_members` | 여행 멤버 + 역할(owner/member) |
 | `trip_invites` | 여행 초대 링크 토큰(만료 14일) |
+| `trip_plan_items` | 공동 여행 계획 항목(Day별 장소·카테고리) |
 | `visits` | 경로별 방문자 수 집계 |
 | `user_city_plans` | Pro 대시보드 활성 도시 플랜 |
 | `dashboard_widget_settings` | Pro 대시보드 위젯 설정 |
@@ -783,6 +784,40 @@ CREATE INDEX IF NOT EXISTS idx_trip_invites_trip ON trip_invites(trip_id);
 
 ---
 
+## trip_plan_items
+
+Trip 멤버들이 공동으로 작성하는 Day별 계획 항목. 추가/조회는 멤버, 수정/삭제는 작성자 또는 owner.
+
+```sql
+CREATE TABLE IF NOT EXISTS trip_plan_items (
+    id         SERIAL PRIMARY KEY,
+    trip_id    TEXT NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+    day        INTEGER NOT NULL,
+    time       TEXT,
+    place      TEXT NOT NULL,
+    category   TEXT NOT NULL,
+    memo       TEXT,
+    added_by   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_trip_plan_items_trip ON trip_plan_items(trip_id);
+```
+
+| 컬럼 | 타입 | Null | 설명 |
+|------|------|------|------|
+| `id` | SERIAL PK | NOT NULL | 자동 증가 정수 |
+| `trip_id` | TEXT FK→trips(id) | NOT NULL | ON DELETE CASCADE |
+| `day` | INTEGER | NOT NULL | 여행 Day (1부터) |
+| `time` | TEXT | NULL 가능 | 시간 (예: '09:00' 또는 '오전') |
+| `place` | TEXT | NOT NULL | 장소/활동명 |
+| `category` | TEXT | NOT NULL | 관광·식사·이동·숙소·액티비티·기타 |
+| `memo` | TEXT | NULL 가능 | 메모 |
+| `added_by` | TEXT FK→users(id) | NOT NULL | 작성자, ON DELETE CASCADE |
+| `created_at` | TIMESTAMPTZ | NOT NULL | 생성 시각 (기본값 NOW()) |
+
+---
+
 ## 인덱스
 
 | 인덱스 | 대상 테이블 | 컬럼 | 용도 |
@@ -791,6 +826,7 @@ CREATE INDEX IF NOT EXISTS idx_trip_invites_trip ON trip_invites(trip_id);
 | `idx_verification_logs_entity` | `verification_logs` | `(entity_type, entity_id)` | 엔티티별 로그 조회 최적화 |
 | `idx_trip_members_user` | `trip_members` | `user_id` | 사용자별 참여 여행 조회 |
 | `idx_trip_invites_trip` | `trip_invites` | `trip_id` | 여행별 초대 조회 |
+| `idx_trip_plan_items_trip` | `trip_plan_items` | `trip_id` | 여행별 계획 항목 조회 |
 
 ---
 
@@ -809,6 +845,7 @@ users (id)
 trips (id)
   └── trip_members (trip_id) — 1:N
   └── trip_invites (trip_id) — 1:N
+  └── trip_plan_items (trip_id) — 1:N
 
 visits — 독립 테이블 (외래키 없음)
 

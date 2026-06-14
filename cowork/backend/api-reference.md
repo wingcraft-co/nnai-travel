@@ -590,6 +590,26 @@ Trip 상세 + 멤버. 멤버만 조회 가능.
 초대 토큰으로 현재 유저를 멤버로 합류(멱등). Request: `{"token": "..."}`. Response 200: 합류한 Trip 상세(상동).
 - `400` 무효 토큰 / `410` 만료된 초대.
 
+### POST /api/trips/{trip_id}/plan-items
+
+공동 계획 항목 추가(멤버). Request: `{"day": 1, "time": "09:00", "place": "우붓", "category": "관광", "memo": "아침"}`
+- `category` 허용값: 관광·식사·이동·숙소·액티비티·기타. `day` 1~60, `place` 필수.
+- Response 200: 항목 dict (`{"id": 1, "trip_id": "...", "day": 1, "time": "...", "place": "...", "category": "...", "memo": "...", "added_by": "...", "created_at": "..."}`).
+- `400` 잘못된 category/빈 place / `403` 비멤버 / `404` Trip 미존재.
+
+### GET /api/trips/{trip_id}/plan-items
+
+계획 항목 목록(멤버). day→time→id 정렬. Response 200: `{"plan_items": [ ... ]}`. `403`/`404` 동일.
+
+### PUT /api/trips/{trip_id}/plan-items/{item_id}
+
+항목 수정(작성자 또는 owner) — 전체 필드 교체. Request: 생성과 동일 필드(전체 전달). Response 200: 수정된 항목.
+- `400` 잘못된 입력 / `403` 권한 없음 / `404` Trip/항목 미존재.
+
+### DELETE /api/trips/{trip_id}/plan-items/{item_id}
+
+항목 삭제(작성자 또는 owner). Response 200: `{"deleted": true}`. `403`/`404` 동일.
+
 ---
 
 ## 결제 API
