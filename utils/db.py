@@ -4,7 +4,7 @@ import secrets
 import threading
 from datetime import datetime, timedelta, timezone
 import psycopg2
-from psycopg2.extras import Json
+from psycopg2.extras import Json, RealDictCursor
 
 from utils.crypto import decrypt_text, encrypt_text, has_pii_encryption_key, pii_hash
 
@@ -47,6 +47,9 @@ _REQUIRED_SCHEMA_TABLES = {
     "onboarding_drafts",
     "rate_limit_hits",
     "tarot_sessions",
+    "trip_invites",
+    "trip_members",
+    "trips",
     "user_city_plans",
     "users",
     "verification_logs",
@@ -1817,9 +1820,8 @@ def consume_rate_limit_token(
 # Trip / Invite SQL repo functions
 # ---------------------------------------------------------------------------
 
-def db_create_trip(trip_id, owner_user_id, title, destination, start_date, end_date) -> dict:
+def db_create_trip(trip_id: str, owner_user_id: str, title: str, destination: dict, start_date, end_date) -> dict:
     """trips 행 삽입 후 dict 반환."""
-    from psycopg2.extras import Json, RealDictCursor
     conn = get_conn()
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
@@ -1835,8 +1837,7 @@ def db_create_trip(trip_id, owner_user_id, title, destination, start_date, end_d
     return dict(row)
 
 
-def db_get_trip(trip_id) -> dict | None:
-    from psycopg2.extras import RealDictCursor
+def db_get_trip(trip_id: str) -> dict | None:
     conn = get_conn()
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
@@ -1848,8 +1849,7 @@ def db_get_trip(trip_id) -> dict | None:
     return dict(row) if row else None
 
 
-def db_list_trips_for_user(user_id) -> list[dict]:
-    from psycopg2.extras import RealDictCursor
+def db_list_trips_for_user(user_id: str) -> list[dict]:
     conn = get_conn()
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
@@ -1867,7 +1867,7 @@ def db_list_trips_for_user(user_id) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def db_get_member_role(trip_id, user_id) -> str | None:
+def db_get_member_role(trip_id: str, user_id: str) -> str | None:
     conn = get_conn()
     with conn.cursor() as cur:
         cur.execute(
@@ -1878,8 +1878,7 @@ def db_get_member_role(trip_id, user_id) -> str | None:
     return row[0] if row else None
 
 
-def db_get_members(trip_id) -> list[dict]:
-    from psycopg2.extras import RealDictCursor
+def db_get_members(trip_id: str) -> list[dict]:
     conn = get_conn()
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
@@ -1891,7 +1890,7 @@ def db_get_members(trip_id) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def db_add_member(trip_id, user_id, role) -> None:
+def db_add_member(trip_id: str, user_id: str, role: str) -> None:
     conn = get_conn()
     with conn.cursor() as cur:
         cur.execute(
@@ -1902,8 +1901,7 @@ def db_add_member(trip_id, user_id, role) -> None:
     conn.commit()
 
 
-def db_create_invite(token, trip_id, created_by, expires_at) -> dict:
-    from psycopg2.extras import RealDictCursor
+def db_create_invite(token: str, trip_id: str, created_by: str, expires_at) -> dict:
     conn = get_conn()
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
@@ -1917,8 +1915,7 @@ def db_create_invite(token, trip_id, created_by, expires_at) -> dict:
     return dict(row)
 
 
-def db_get_invite(token) -> dict | None:
-    from psycopg2.extras import RealDictCursor
+def db_get_invite(token: str) -> dict | None:
     conn = get_conn()
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
