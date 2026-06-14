@@ -62,3 +62,4 @@
 - 순수 로직/서비스 테스트 23개(로컬 결정론적, 가짜 repo) + 라우터 테스트 9개(CI 전용, fastapi importorskip) + CI 등록. 초대는 만료(14일) 기반 멀티유즈 링크, 합류 멱등, Trip 생성은 owner 멤버와 단일 트랜잭션. SQL/실DB는 Railway 배포 시 검증.
 - Phase 6(공동 플래너) 완료: `trip_plan_items` 테이블(멱등 DDL + 스키마 가드 등록) + SQL repo, `api/trip_plan_logic.py`(카테고리·직렬화·편집권한)·`api/trip_plan_service.py`(추가/목록/수정/삭제, Trip 멤버십 재사용) 신설, `api/trips.py`에 `/plan-items` 엔드포인트 4개(POST/GET/PUT/DELETE) 추가. `db-schema.md`·`api-reference.md` 동기화.
 - 로직/서비스 테스트 24개(로컬, 가짜 repo) + 라우터 테스트 11개(CI 전용) + CI 등록. 권한: 추가/조회=멤버, 수정/삭제=작성자 또는 owner. SQL은 Railway 배포 시 검증.
+- Phase 7(프론트 여행 전환·입력+추천) 완료: 온보딩 입력폼을 여행 스키마(시기·박수·예산·관심사·권역·동행)로 전환, recommend BFF를 `/api/travel/recommend`로 연결(+destinations 설명 보강, reveal 세션 제거), 타로 결과를 여행지 TOP 5 카드로 전환. `destination-enrich`·`travel-recommend-request` 순수 헬퍼 + 테스트 10개 + CI 등록.

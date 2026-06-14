@@ -151,6 +151,38 @@
   },
   "result": {
     "placeholder": "추천 결과가 여기에 표시됩니다",
-    "detailPlaceholder": "국가별 상세 가이드가 여기에 표시됩니다"
+    "detailPlaceholder": "국가별 상세 가이드가 여기에 표시됩니다",
+    "travelTitle": "당신을 위한 여행지 TOP 5",
+    "travelSubtitle": "카드를 열면 추천 여행지가 순서대로 공개됩니다",
+    "travelOpening": "여행지 카드가 열립니다",
+    "labels": {
+      "vibe": "분위기",
+      "budget": "예상경비",
+      "bestMonths": "추천시기",
+      "mustSee": "가볼 곳",
+      "activities": "추천 활동",
+      "flight": "비행"
+    }
+  },
+  "travelForm": {
+    "stepTitles": [
+      "언제 여행을 떠날 계획이에요?",
+      "여행 예산은 어느 정도예요?",
+      "어떤 여행을 원해요?",
+      "가고 싶은 지역이 있어요?",
+      "누구와 함께 가나요?"
+    ],
+    "labels": {
+      "travelMonth": "여행 월 (선택)",
+      "nights": "여행 기간",
+      "budget": "총 여행 예산",
+      "interests": "복수 선택 가능",
+      "regions": "복수 선택 가능",
+      "companionType": "동행 유형",
+      "headcount": "총 인원 수",
+      "companionAges": "동행 나이대",
+      "accessibility": "이동 편의",
+      "pace": "여행 페이스"
+    }
   }
 }

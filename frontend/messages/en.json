@@ -151,6 +151,38 @@
   },
   "result": {
     "placeholder": "Recommendation results will be displayed here",
-    "detailPlaceholder": "Detailed country guide will be displayed here"
+    "detailPlaceholder": "Detailed country guide will be displayed here",
+    "travelTitle": "Your Top 5 Travel Destinations",
+    "travelSubtitle": "Open the cards to reveal your matched destinations",
+    "travelOpening": "Opening destination cards",
+    "labels": {
+      "vibe": "Vibe",
+      "budget": "Budget",
+      "bestMonths": "Best time",
+      "mustSee": "Must see",
+      "activities": "Good for",
+      "flight": "Flight"
+    }
+  },
+  "travelForm": {
+    "stepTitles": [
+      "When are you traveling?",
+      "What's your budget?",
+      "What are you into?",
+      "Where do you want to go?",
+      "Who are you traveling with?"
+    ],
+    "labels": {
+      "travelMonth": "Travel month (optional)",
+      "nights": "Trip length",
+      "budget": "Total trip budget",
+      "interests": "Select all that apply",
+      "regions": "Select all that apply",
+      "companionType": "Companion type",
+      "headcount": "Number of travelers",
+      "companionAges": "Ages in your group",
+      "accessibility": "Accessibility needs",
+      "pace": "Travel pace"
+    }
   }
 }
