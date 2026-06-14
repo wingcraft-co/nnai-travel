@@ -1,4 +1,4 @@
-export const ONBOARDING_FORM_DRAFT_KEY = "onboarding_form_draft_v1";
+export const ONBOARDING_FORM_DRAFT_KEY = "onboarding_form_draft_v2";
 export const ONBOARDING_DRAFT_UPDATED_EVENT = "nnai:onboarding-draft-updated";
 
 export interface OnboardingFormDraft {

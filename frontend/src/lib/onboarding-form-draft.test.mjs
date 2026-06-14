@@ -28,16 +28,16 @@ test("stores and restores onboarding form choices for anonymous retry", () => {
   const draft = {
     currentStep: 4,
     form: {
-      immigration_purpose: "원격 근무",
-      timeline: "1년 장기 체류",
-      travel_type: "혼자 (솔로)",
-      lifestyle: ["해변"],
+      travel_month: 8,
+      nights: 4,
+      interests: ["휴양", "미식"],
+      companion_type: "혼자",
     },
   };
 
   writeOnboardingFormDraft(storage, draft);
 
-  assert.equal(storage.getItem(ONBOARDING_FORM_DRAFT_KEY)?.includes("원격 근무"), true);
+  assert.equal(storage.getItem(ONBOARDING_FORM_DRAFT_KEY)?.includes("휴양"), true);
   assert.deepEqual(readOnboardingFormDraft(storage), draft);
 });
 
@@ -50,7 +50,7 @@ test("ignores corrupted onboarding form drafts", () => {
 
 test("clears onboarding form draft after successful handoff", () => {
   const storage = createStorage();
-  writeOnboardingFormDraft(storage, { currentStep: 5, form: { travel_type: "혼자 (솔로)" } });
+  writeOnboardingFormDraft(storage, { currentStep: 5, form: { companion_type: "혼자" } });
 
   clearOnboardingFormDraft(storage);
 
