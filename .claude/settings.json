@@ -3,7 +3,7 @@
     "allow": [
       "Write",
       "Edit",
-      "Edit .claude/session/**"
+      "Edit(.claude/session/**)"
     ]
   }
 }
