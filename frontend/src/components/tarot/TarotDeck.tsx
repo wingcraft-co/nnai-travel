@@ -389,12 +389,13 @@ function LightboxFrontContent({
     try {
       sessionStorage.setItem("selected_destination", JSON.stringify(city));
     } catch {
-      // ignore storage failures; the placeholder state still renders
+      // ignore storage failures; itinerary page falls back to /result
     }
     trackResultCardInteraction({
       action: "guide_click",
       cityId: city.id ?? undefined,
     });
+    window.location.assign(`/${locale}/itinerary`);
   }
 
   const showLoginCta = false;
@@ -639,11 +640,8 @@ function LightboxFrontContent({
               letterSpacing: "0.03em",
             }}
           >
-            {isEn ? "Save for itinerary" : "이 여행지로 일정 만들기"}
+            {isEn ? "Build itinerary" : "이 여행지로 일정 만들기"}
           </button>
-          <p className="text-center text-[10px]" style={{ color: "var(--muted-foreground)" }}>
-            {isEn ? "Itinerary builder opens in the next phase." : "일정 생성 기능은 다음 단계에서 연결됩니다."}
-          </p>
         </div>
 
         {showDetailLoadingCta && (

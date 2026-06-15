@@ -18,14 +18,16 @@ test("detail CTA does not repeat the city-specific guide label above the button"
 });
 
 test("travel plan CTA shows a pointer cursor when actionable", () => {
-  assert.match(source, /className="[^"]*cursor-pointer[^"]*"[\s\S]*?>\s*\{isEn \? "Save for itinerary" : "이 여행지로 일정 만들기"\}/);
+  assert.match(source, /className="[^"]*cursor-pointer[^"]*"[\s\S]*?>\s*\{isEn \? "Build itinerary" : "이 여행지로 일정 만들기"\}/);
   assert.doesNotMatch(source, />\s*상세 페이지 받기\s*</);
 });
 
-test("travel plan CTA stores the selected destination for the next phase", () => {
+test("travel plan CTA stores the selected destination and navigates to the itinerary page", () => {
   assert.match(source, /function handlePlanClick/);
   assert.match(source, /sessionStorage\.setItem\("selected_destination", JSON\.stringify\(city\)\)/);
-  assert.match(source, /일정 생성 기능은 다음 단계에서 연결됩니다\./);
+  assert.match(source, /window\.location\.assign\(`\/\$\{locale\}\/itinerary`\)/);
+  // placeholder copy from the pre-wiring phase must be gone
+  assert.doesNotMatch(source, /일정 생성 기능은 다음 단계에서 연결됩니다\./);
   assert.doesNotMatch(source, /Loader2/);
   assert.doesNotMatch(source, /animate-spin/);
 });

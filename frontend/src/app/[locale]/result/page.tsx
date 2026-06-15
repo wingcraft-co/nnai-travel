@@ -22,6 +22,7 @@ import { normalizeCompletedResultSession } from "@/lib/result-session";
 // ── Constants ──────────────────────────────────────────────────────
 
 const RECOMMEND_PAYLOAD_KEY = "recommend_payload";
+const TRAVEL_PROFILE_KEY = "travel_profile";
 const RECOMMEND_SERVER_ERROR_MESSAGE = "서버가 불안정합니다.\n잠시 후 다시 시도해주세요.";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:7860";
 const GUIDE_RESULT_RESTORE_KEY = "guide_result_restore_requested";
@@ -174,6 +175,8 @@ export default function ResultPage() {
         hasPersona,
       });
 
+      // 여행 일정(itinerary) 생성에 재사용할 프로필을 보존 (recommend payload는 곧 삭제됨)
+      localStorage.setItem(TRAVEL_PROFILE_KEY, payloadStr);
       localStorage.removeItem(RECOMMEND_PAYLOAD_KEY);
       clearOnboardingFormDraft(localStorage);
       void clearServerOnboardingDrafts({ apiBase: API_BASE }).catch(() => undefined);
