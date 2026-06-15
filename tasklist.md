@@ -63,3 +63,15 @@
 - Phase 6(공동 플래너) 완료: `trip_plan_items` 테이블(멱등 DDL + 스키마 가드 등록) + SQL repo, `api/trip_plan_logic.py`(카테고리·직렬화·편집권한)·`api/trip_plan_service.py`(추가/목록/수정/삭제, Trip 멤버십 재사용) 신설, `api/trips.py`에 `/plan-items` 엔드포인트 4개(POST/GET/PUT/DELETE) 추가. `db-schema.md`·`api-reference.md` 동기화.
 - 로직/서비스 테스트 24개(로컬, 가짜 repo) + 라우터 테스트 11개(CI 전용) + CI 등록. 권한: 추가/조회=멤버, 수정/삭제=작성자 또는 owner. SQL은 Railway 배포 시 검증.
 - Phase 7(프론트 여행 전환·입력+추천) 완료: 온보딩 입력폼을 여행 스키마(시기·박수·예산·관심사·권역·동행)로 전환, recommend BFF를 `/api/travel/recommend`로 연결(+destinations 설명 보강, reveal 세션 제거), 타로 결과를 여행지 TOP 5 카드로 전환. `destination-enrich`·`travel-recommend-request` 순수 헬퍼 + 테스트 10개 + CI 등록.
+
+## 2026-06-15
+- `.claude/settings.json`의 잘못된 권한 규칙 `Edit .claude/session/**` → `Edit(.claude/session/**)`로 교정(/doctor 경고 해소).
+- Phase 8(프론트 일정 상세) 완료: 추천 카드의 "이 여행지로 일정 만들기" CTA를 실제 일정 생성으로 배선. `/api/itinerary` BFF(→백엔드 `/api/travel/itinerary`) + `/[locale]/itinerary` 페이지(N박M일 마크다운 렌더) 신설.
+- 순수 헬퍼 `itinerary-request`(여행지+프로필→요청 변환)·`itinerary-markdown`(마크다운→노드 파서) + 테스트 13개 추가, TarotDeck placeholder 제거 및 테스트 갱신, CI 등록. result 페이지가 recommend 성공 시 `travel_profile`을 localStorage에 보존하도록 추가. tsc·빌드 통과.
+
+## 2026-06-16
+- Phase 8 폴리시: itinerary 페이지에서 마크다운이 자체 h1으로 시작하면 페이지 제목 h1을 생략해 중복 헤딩 제거.
+- Phase 9(프론트 Trip & 협업 플래너 UI) 완료: BFF 6종(`/api/trips`, `/api/trips/[trip_id]`, `/invites`, `/join`, `/plan-items`, `/plan-items/[item_id]` — 상태코드 통과 프록시 `trips-proxy`) + 페이지 3종(`trips` 목록, `trips/[id]` 상세+공동플래너, `trips/join` 합류) 신설.
+- 진입점: itinerary 페이지에 "Trip으로 저장"(미로그인 시 Google 로그인 유도→trip 생성→상세 이동). 클라 API 래퍼 `trips-api`, 공용 auth 헬퍼 `auth-session` 추가.
+- 순수 헬퍼 `trip-plan`(정렬 day→time→id, Day 그룹핑, 편집권한 작성자/owner, draft 검증·카테고리 6종) + 테스트 12개 + CI 등록. 폴링/수동 새로고침(실시간 미구현, YAGNI). tsc·eslint·빌드 통과, 전체 프론트 테스트 174개 통과.
+- 실제 브라우저 도그푸딩(상태 mock 백엔드): 추천→일정→Trip 저장→멤버/owner 배지→일정 추가(Day1·2 그룹핑)→삭제 CRUD→초대 링크 생성→토큰 합류→목록 표시까지 end-to-end 확인.
